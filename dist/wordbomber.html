@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WordBomber</title>
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #0a0a12;
+  height: 100%;
+}
+#wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+#game {
+  background: #123016;
+  box-shadow: 0 0 40px rgba(80, 200, 120, 0.25);
+  image-rendering: pixelated;
+  max-width: 100vw;
+  max-height: 100vh;
+}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="480" height="640"></canvas>
+</div>
+<script>
+// WordBomber dictionary: common English words, uppercase, grouped by length.
+window.WB = window.WB || {};
+
+WB.WORDS = {
+  3: (
+    'ACE ACT ADD AGE AGO AID AIM AIR ALL AND ANT ANY APE ARM ART ASH ASK ATE ' +
+    'BAD BAG BAN BAR BAT BAY BED BEE BEG BET BIG BIN BIT BOX BOY BUD BUG BUS BUT BUY ' +
+    'CAB CAN CAP CAR CAT COP COW CRY CUP CUT DAD DAM DAY DEN DEW DIG DIM DIP DOG DOT DRY DUE DUG ' +
+    'EAR EAT EGG EGO END ERA EVE EYE FAN FAR FAT FEE FEW FIG FIN FIT FIX FLY FOG FOR FOX FUN FUR ' +
+    'GAP GAS GEM GET GOT GUM GUN GUT GUY GYM HAD HAM HAS HAT HAY HEN HER HID HIM HIP HIS HIT HOP HOT HOW HUB HUG HUT ' +
+    'ICE ICY ILL INK INN ION ITS JAM JAR JAW JET JOB JOG JOY KEY KID KIT ' +
+    'LAB LAD LAG LAP LAW LAY LEG LET LID LIE LIP LIT LOG LOT LOW ' +
+    'MAD MAN MAP MAT MAY MEN MET MIX MOB MOM MUD MUG NAP NET NEW NOD NOR NOT NOW NUT ' +
+    'OAK ODD OFF OIL OLD ONE OUR OUT OWE OWL OWN ' +
+    'PAD PAN PAT PAW PAY PEA PEN PET PIE PIG PIN PIT POT PRO PUB PUT ' +
+    'RAG RAM RAN RAT RAW RAY RED RIB RID RIM RIP ROB ROD ROT ROW RUB RUG RUN ' +
+    'SAD SAT SAW SAY SEA SEE SET SHE SHY SIN SIP SIR SIT SIX SKI SKY SON SPA SPY SUM SUN ' +
+    'TAB TAG TAN TAP TAX TEA TEN THE TIE TIN TIP TOE TON TOP TOY TRY TUB TWO ' +
+    'USE VAN VAT VET VIA WAR WAS WAX WAY WEB WET WHO WHY WIG WIN WON WOW YES YET YOU ZOO'
+  ).split(' '),
+
+  4: (
+    'ABLE ACID AREA ARMY BABY BACK BAIT BAKE BALL BAND BANK BARE BARK BARN BASE BATH BEAM BEAN BEAR BEAT ' +
+    'BELL BELT BEND BEST BIKE BILL BIRD BITE BLOW BLUE BOAT BODY BOIL BOLD BOLT BOMB BOND BONE BOOK BOOM ' +
+    'BOOT BORN BOSS BOTH BOWL BULK BULL BURN BUSH BUSY CAGE CAKE CALL CALM CAMP CARD CARE CART CASE CASH ' +
+    'CAST CAVE CELL CHAT CHEF CHIP CITY CLAP CLAW CLAY CLIP CLUB COAL COAT CODE COIN COLD COMB COME COOK ' +
+    'COOL COPE COPY CORD CORE CORN COST COZY CRAB CREW CROP CROW CUBE CURE CUTE DARE DARK DATA DATE DAWN ' +
+    'DEAD DEAL DEAR DEBT DECK DEEP DEER DESK DIAL DICE DIET DIRT DISH DIVE DOCK DOES DOLL DOME DOOR DOSE ' +
+    'DOWN DRAG DRAW DREW DRIP DROP DRUM DUCK DULL DUST DUTY EACH EARN EASE EAST EASY EDGE ELSE EVEN EVER ' +
+    'EXIT FACE FACT FADE FAIL FAIR FALL FARM FAST FATE FEAR FEED FEEL FEET FELL FELT FILE FILL FILM FIND ' +
+    'FINE FIRE FIRM FISH FIST FIVE FLAG FLAT FLEW FLIP FLOW FOAM FOLD FOLK FOOD FOOT FORK FORM FORT FOUR ' +
+    'FREE FROG FROM FUEL FULL FUND GAIN GAME GATE GAVE GEAR GIFT GIRL GIVE GLAD GLOW GLUE GOAL GOAT GOES ' +
+    'GOLD GOLF GONE GOOD GRAB GRAY GREW GRID GRIN GRIP GROW GULF HAIR HALF HALL HAND HANG HARD HARM HATE ' +
+    'HAVE HAWK HEAD HEAL HEAR HEAT HEEL HELD HELP HERB HERD HERE HERO HIDE HIGH HIKE HILL HINT HIRE HOLD ' +
+    'HOLE HOME HOOK HOPE HORN HOSE HOST HOUR HUGE HUNT HURT ICON IDEA INCH INTO IRON ITEM JAZZ JOIN JOKE ' +
+    'JUMP JURY JUST KEEN KEEP KEPT KICK KIND KING KISS KITE KNEE KNEW KNOB KNOT KNOW LACE LACK LADY LAID ' +
+    'LAKE LAMB LAMP LAND LANE LAST LATE LAWN LAZY LEAD LEAF LEAN LEAP LEFT LEND LENS LESS LIFE LIFT LIKE ' +
+    'LIME LINE LINK LION LIST LIVE LOAD LOAF LOAN LOCK LOGO LONG LOOK LOOP LORD LOSE LOSS LOST LOUD LOVE ' +
+    'LUCK LUNG MADE MAIL MAIN MAKE MALL MANY MARK MASK MASS MATH MEAL MEAN MEAT MEET MELT MENU MESS MICE ' +
+    'MILD MILE MILK MIND MINE MINT MISS MIST MODE MOOD MOON MORE MOSS MOST MOTH MOVE MUCH MUST MYTH NAIL ' +
+    'NAME NAVY NEAR NEAT NECK NEED NEST NEWS NEXT NICE NINE NODE NONE NOON NOSE NOTE NOUN OBEY ODDS ONCE ' +
+    'ONLY OPEN ORAL OVAL OVEN OVER PACE PACK PAGE PAID PAIN PAIR PALE PALM PARK PART PASS PAST PATH PEAK ' +
+    'PEAR PEEL PICK PIER PILE PILL PINE PINK PIPE PLAN PLAY PLOT PLUG PLUS POEM POET POLE POND POOL POOR ' +
+    'PORT POSE POST POUR PRAY PULL PUMP PURE PUSH QUIT QUIZ RACE RACK RAIL RAIN RANK RARE RATE READ REAL ' +
+    'REAR RENT REST RICE RICH RIDE RING RIPE RISE RISK ROAD ROAR ROCK ROLE ROLL ROOF ROOM ROOT ROPE ROSE ' +
+    'RUBY RUDE RULE RUSH RUST SAFE SAID SAIL SALE SALT SAME SAND SAVE SEAL SEAT SEED SEEK SEEM SEEN SELF ' +
+    'SELL SEND SENT SHIP SHOE SHOP SHOT SHOW SHUT SICK SIDE SIGN SILK SING SINK SITE SIZE SKIN SLIP SLOW ' +
+    'SNAP SNOW SOAP SOCK SOFA SOFT SOIL SOLD SOLE SOME SONG SOON SORT SOUL SOUP SPIN SPOT STAR STAY STEM ' +
+    'STEP STIR STOP SUCH SUIT SURE SWAN SWIM TAIL TAKE TALE TALK TALL TANK TAPE TASK TAXI TEAM TEAR TELL ' +
+    'TENT TERM TEST TEXT THAN THAT THEM THEN THEY THIN THIS TIDE TIDY TIME TINY TIRE TOLD TONE TOOK TOOL ' +
+    'TOUR TOWN TRAP TRAY TREE TRIM TRIP TRUE TUBE TUNE TURN TWIN TYPE UGLY UNIT UPON USED USER VARY VAST ' +
+    'VERB VERY VIEW VOTE WAGE WAIT WAKE WALK WALL WANT WARM WASH WAVE WEAK WEAR WEEK WELL WENT WERE WEST ' +
+    'WHAT WHEN WHOM WIDE WIFE WILD WILL WIND WINE WING WIPE WIRE WISE WISH WITH WOLF WOOD WOOL WORD WORE ' +
+    'WORK WORM WRAP YARD YEAR ZERO ZONE'
+  ).split(' '),
+
+  5: (
+    'ABOUT ABOVE ACTOR ADAPT ADMIT ADOPT ADULT AFTER AGAIN AGENT AGREE AHEAD ALARM ALBUM ALERT ALIKE ALIVE ' +
+    'ALLOW ALONE ALONG ALOUD ANGEL ANGER ANGLE ANGRY ANKLE APART APPLE APPLY APRON ARENA ARGUE ARISE ARMOR ' +
+    'AROSE ARRAY ARROW ASIDE AVOID AWAKE AWARD AWARE BADGE BAKER BASIC BEACH BEGAN BEGIN BEING BELOW BENCH ' +
+    'BERRY BIRTH BLACK BLADE BLAME BLANK BLAST BLAZE BLEND BLESS BLIND BLOCK BLOOD BLOOM BOARD BONUS BOOST ' +
+    'BOOTH BOUND BRAIN BRAND BRAVE BREAD BREAK BRICK BRIDE BRIEF BRING BROAD BROKE BROOK BROWN BRUSH BUILD ' +
+    'BUNCH BURST CABIN CABLE CANDY CARGO CARRY CATCH CAUSE CHAIN CHAIR CHALK CHARM CHART CHASE CHEAP CHECK ' +
+    'CHEEK CHEER CHESS CHEST CHIEF CHILD CHILL CHOIR CHOSE CIVIL CLAIM CLASS CLEAN CLEAR CLERK CLICK CLIFF ' +
+    'CLIMB CLOCK CLOSE CLOTH CLOUD COACH COAST COLOR COMET COMIC CORAL COUCH COUNT COURT COVER CRACK CRAFT ' +
+    'CRANE CRASH CRAZY CREAM CRIME CROSS CROWD CROWN CRUSH CURVE CYCLE DAILY DAIRY DANCE DEALT DEATH DELAY ' +
+    'DEPTH DIARY DIRTY DOZEN DRAFT DRAIN DRAMA DREAM DRESS DRIED DRIFT DRILL DRINK DRIVE DROVE DYING EAGER ' +
+    'EAGLE EARLY EARTH EIGHT ELBOW ELECT EMPTY ENEMY ENJOY ENTER ENTRY EQUAL ERROR EVENT EVERY EXACT EXIST ' +
+    'EXTRA FAITH FALSE FANCY FAULT FAVOR FEAST FENCE FEVER FIBER FIELD FIFTH FIFTY FIGHT FINAL FIRST FLAME ' +
+    'FLASH FLEET FLESH FLOAT FLOCK FLOOD FLOOR FLOUR FLUID FOCUS FORCE FORTH FORTY FORUM FOUND FRAME FRESH ' +
+    'FRONT FROST FRUIT FUNNY GHOST GIANT GIVEN GLASS GLOBE GLORY GLOVE GRACE GRADE GRAIN GRAND GRANT GRAPE ' +
+    'GRASP GRASS GRAVE GREAT GREEN GREET GRIEF GRILL GROUP GROVE GROWN GUARD GUESS GUEST GUIDE HABIT HAPPY ' +
+    'HARSH HEART HEAVY HELLO HENCE HOBBY HONEY HONOR HORSE HOTEL HOUSE HUMAN HUMOR HURRY IDEAL IMAGE INDEX ' +
+    'INNER INPUT ISSUE JOINT JUDGE JUICE KNIFE KNOCK KNOWN LABEL LABOR LARGE LASER LATER LAUGH LAYER LEARN ' +
+    'LEAST LEAVE LEGAL LEMON LEVEL LIGHT LIMIT LOCAL LOGIC LOOSE LOWER LOYAL LUCKY LUNCH MAGIC MAJOR MAKER ' +
+    'MAPLE MARCH MATCH MAYBE MAYOR MEANT MEDAL MEDIA MELON MERCY MERGE MERIT METAL METER MIGHT MINOR MINUS ' +
+    'MIXED MODEL MONEY MONTH MORAL MOTOR MOUNT MOUSE MOUTH MOVIE MUSIC NERVE NEVER NEWLY NIGHT NOBLE NOISE ' +
+    'NORTH NOTED NOVEL NURSE OCCUR OCEAN OFFER OFTEN OLIVE ONION ORDER OTHER OUGHT OUTER OWNER PAINT PANEL ' +
+    'PANIC PAPER PARTY PASTE PATCH PAUSE PEACE PEACH PEARL PENNY PHASE PHONE PHOTO PIANO PIECE PILOT PITCH ' +
+    'PIZZA PLACE PLAIN PLANE PLANT PLATE PLAZA POINT POLAR POUND POWER PRESS PRICE PRIDE PRIME PRINT PRIZE ' +
+    'PROOF PROUD PROVE PUPIL QUEEN QUICK QUIET QUITE QUOTE RADAR RADIO RAISE RALLY RANCH RANGE RAPID RATIO ' +
+    'REACH REACT READY REBEL REFER RELAX REPLY RIDER RIGHT RIGID RISKY RIVAL RIVER ROAST ROBIN ROBOT ROCKY ' +
+    'ROUGH ROUND ROUTE ROYAL RURAL SADLY SALAD SAUCE SCALE SCARE SCENE SCENT SCOPE SCORE SCOUT SCRAP SENSE ' +
+    'SERVE SEVEN SHADE SHAKE SHALL SHAME SHAPE SHARE SHARK SHARP SHEEP SHEET SHELF SHELL SHIFT SHINE SHINY ' +
+    'SHIRT SHOCK SHOOT SHORE SHORT SHOUT SHOWN SIGHT SILLY SINCE SIXTH SIXTY SKILL SKIRT SLEEP SLICE SLIDE ' +
+    'SLOPE SMALL SMART SMELL SMILE SMOKE SNACK SNAKE SOLAR SOLID SOLVE SORRY SOUND SOUTH SPACE SPARE SPARK ' +
+    'SPEAK SPEED SPELL SPEND SPICE SPINE SPLIT SPOKE SPORT SPRAY STAFF STAGE STAIR STAKE STAMP STAND STARE ' +
+    'START STATE STEAK STEAL STEAM STEEL STEEP STICK STIFF STILL STOCK STONE STOOD STORE STORM STORY STOVE ' +
+    'STRAP STRAW STRIP STUCK STUDY STUFF STYLE SUGAR SUITE SUNNY SUPER SWEEP SWEET SWIFT SWING SWORD TABLE ' +
+    'TASTE TEACH TEETH TENSE TENTH THANK THEFT THEIR THEME THERE THESE THICK THIEF THING THINK THIRD THOSE ' +
+    'THREE THREW THROW THUMB TIGER TIGHT TIRED TITLE TODAY TOKEN TOOTH TOPIC TOTAL TOUCH TOUGH TOWEL TOWER ' +
+    'TOXIC TRACE TRACK TRADE TRAIL TRAIN TRAIT TRASH TREAT TREND TRIAL TRIBE TRICK TRIED TRUCK TRULY TRUNK ' +
+    'TRUST TRUTH TWICE TWIST UNCLE UNDER UNION UNITE UNITY UNTIL UPPER UPSET URBAN USAGE USUAL VALID VALUE ' +
+    'VIDEO VIRUS VISIT VITAL VOCAL VOICE WAGON WASTE WATCH WATER WHALE WHEAT WHEEL WHERE WHICH WHILE WHITE ' +
+    'WHOLE WHOSE WIDTH WOMAN WORLD WORRY WORSE WORST WORTH WOULD WOUND WRIST WRITE WRONG WROTE YIELD YOUNG YOUTH'
+  ).split(' '),
+
+  6: (
+    'ABSORB ACCEPT ACCESS ACROSS ACTION ACTIVE ADVICE AFFORD AGENCY AGENDA ALMOST ALWAYS AMOUNT ANCHOR ANIMAL ' +
+    'ANNUAL ANSWER ANYONE ANYWAY APPEAL APPEAR AROUND ARRIVE ARTIST ASPECT ASSIST ASSUME ATTACK ATTEND AUTHOR ' +
+    'AUTUMN AVENUE BACKUP BANANA BASKET BATTLE BEAUTY BECAME BECOME BEFORE BEHALF BEHAVE BEHIND BELIEF BELONG ' +
+    'BESIDE BETTER BEYOND BORDER BOTTLE BOTTOM BOUGHT BRANCH BREATH BRIDGE BRIGHT BROKEN BUDGET BURDEN BUTTON ' +
+    'CAMERA CANCEL CANDLE CANNOT CANVAS CARBON CAREER CASTLE CASUAL CAUGHT CENTER CHANCE CHANGE CHARGE CHERRY ' +
+    'CHOICE CHOOSE CHOSEN CHURCH CIRCLE CLIENT CLOSED CLOSET COFFEE COLUMN COMBAT COMEDY COMMON COPPER CORNER ' +
+    'COSTLY COTTON COUPLE COURSE COUSIN CREATE CREDIT CRISIS CUSTOM DAMAGE DANCER DANGER DEBATE DECADE DECIDE ' +
+    'DEFEAT DEFEND DEFINE DEGREE DELETE DEMAND DENTAL DEPEND DEPUTY DESERT DESIGN DESIRE DETAIL DEVICE DINNER ' +
+    'DIRECT DOCTOR DOLLAR DOMAIN DOUBLE DRAGON DRAWER DRIVEN DURING EASILY EATING EDITOR EFFECT EFFORT EIGHTY ' +
+    'EITHER ELEVEN EMPIRE ENABLE ENERGY ENGAGE ENGINE ENOUGH ENSURE ENTIRE ESCAPE ESTATE EXCEED EXCEPT EXCESS ' +
+    'EXPAND EXPECT EXPERT EXPORT EXTEND EXTENT FABRIC FACTOR FAIRLY FALLEN FAMILY FAMOUS FATHER FELLOW FEMALE ' +
+    'FIGURE FILTER FINGER FINISH FLIGHT FLOWER FLYING FOLLOW FORCED FOREST FORGET FORMAL FORMAT FORMER FOSTER ' +
+    'FOUGHT FOURTH FRIEND FROZEN FUTURE GARAGE GARDEN GATHER GENDER GENIUS GENTLE GLOBAL GOLDEN GROUND GROWTH ' +
+    'GUITAR HANDLE HAPPEN HARDLY HEALTH HEIGHT HIDDEN HOLDER HONEST HORROR HUMBLE HUNGRY IGNORE IMPACT IMPORT ' +
+    'INCOME INDEED INJURY INSECT INSIDE INTENT INVEST INVITE ISLAND JACKET JUNGLE JUNIOR KETTLE KIDNEY KNIGHT ' +
+    'LADDER LAPTOP LATELY LATTER LAUNCH LAWYER LEADER LEAGUE LEGACY LEGEND LENGTH LESSON LETTER LIKELY LIQUID ' +
+    'LISTEN LITTLE LIVING LOCATE LONELY LUXURY MAINLY MAKEUP MAMMAL MANAGE MANNER MARBLE MARGIN MARINE MARKET ' +
+    'MASTER MATTER MATURE MEADOW MEDIUM MEMBER MEMORY MENTAL MENTOR METHOD MIDDLE MIRROR MOBILE MODERN MODEST ' +
+    'MODULE MOMENT MONKEY MOTHER MOTION MUSEUM MUTUAL MYSELF NARROW NATION NATIVE NATURE NEARBY NEARLY NEEDLE ' +
+    'NEPHEW NICKEL NOBODY NORMAL NOTICE NOTION NUMBER OBJECT OBTAIN OFFICE ONLINE OPTION ORANGE ORIGIN OUTPUT ' +
+    'OXYGEN PALACE PARADE PARENT PARTLY PATENT PENCIL PEOPLE PEPPER PERIOD PERMIT PERSON PHRASE PICKUP PICNIC ' +
+    'PLANET PLAYER PLEASE PLENTY POCKET POETRY POLICE POLICY POLISH PORTAL POSTER POTATO PRAISE PRAYER PREFER ' +
+    'PRETTY PRINCE PRISON PROFIT PROMPT PROPER PROVEN PUBLIC PURPLE PURSUE PUZZLE RABBIT RACIAL RANDOM RARELY ' +
+    'RATHER REALLY REASON RECALL RECENT RECIPE RECORD REDUCE REFORM REFUSE REGARD REGION REGRET RELATE REMAIN ' +
+    'REMIND REMOTE REMOVE REPAIR REPEAT REPORT RESCUE RESIST RESORT RESULT RETAIL RETAIN RETIRE RETURN REVEAL ' +
+    'REVIEW REWARD RHYTHM RIBBON RIDING ROCKET RUBBER SAFETY SALARY SAMPLE SCHEME SCHOOL SCREEN SCRIPT SEARCH ' +
+    'SEASON SECOND SECRET SECTOR SECURE SELECT SENIOR SERIES SERVER SETTLE SEVERE SHADOW SHOULD SHOWER SHRIMP ' +
+    'SIGNAL SILENT SILVER SIMPLE SIMPLY SINGER SINGLE SISTER SLIGHT SMOOTH SOCCER SOCIAL SOURCE SPEECH SPHERE ' +
+    'SPIRIT SPREAD SPRING SQUARE STABLE STATUE STATUS STEADY STOLEN STRAIN STRAND STREAM STREET STRESS STRICT ' +
+    'STRIKE STRING STRONG STRUCK SUBMIT SUBTLE SUDDEN SUFFER SUMMER SUMMIT SUNSET SUPPLY SURELY SURVEY SWITCH ' +
+    'SYMBOL SYSTEM TACKLE TALENT TARGET TEMPLE TENANT TENDER TENNIS THEORY THIRTY THREAD THREAT THROWN TICKET ' +
+    'TIMBER TISSUE TOMATO TONGUE TOWARD TRAVEL TREATY TRIPLE TROPHY TUNNEL TURTLE TWELVE TWENTY UNABLE UNIQUE ' +
+    'UNITED UNLESS UNLIKE UPDATE UPWARD URGENT USEFUL VALLEY VENDOR VERSUS VESSEL VICTIM VIOLET VIRTUE VISION ' +
+    'VISUAL VOLUME WALLET WEALTH WEAPON WEEKLY WEIGHT WINDOW WINNER WINTER WISDOM WITHIN WONDER WOODEN WORKER ' +
+    'WRITER YELLOW'
+  ).split(' '),
+
+  7: (
+    'ABILITY ABSENCE ACCOUNT ACHIEVE ACQUIRE ADDRESS ADVANCE ADVISER AGAINST AIRLINE AIRPORT ALCOHOL ALREADY ' +
+    'AMAZING ANCIENT ANOTHER ANXIETY ANYBODY APPLIED ARRANGE ARRIVAL ARTICLE ATTEMPT ATTRACT AUCTION AVERAGE ' +
+    'BALANCE BANKING BARRIER BATTERY BEDROOM BELIEVE BENEATH BENEFIT BETWEEN BICYCLE BILLION BLANKET BROTHER ' +
+    'BROUGHT BUILDER CABINET CAPABLE CAPITAL CAPTAIN CAPTURE CAREFUL CARRIER CAUTION CEILING CENTRAL CENTURY ' +
+    'CERTAIN CHAMBER CHANNEL CHAPTER CHARITY CHICKEN CIRCUIT CITIZEN CLASSIC CLIMATE CLOTHES COLLECT COLLEGE ' +
+    'COMBINE COMFORT COMMAND COMMENT COMPANY COMPARE COMPETE COMPLEX CONCEPT CONCERN CONCERT CONDUCT CONFIRM ' +
+    'CONNECT CONSIST CONTACT CONTAIN CONTENT CONTEST CONTEXT CONTROL CONVERT CORRECT COTTAGE COUNCIL COUNTER ' +
+    'COUNTRY COURAGE CRICKET CRYSTAL CULTURE CURIOUS CURRENT DELIVER DENSITY DESPITE DESSERT DESTROY DEVELOP ' +
+    'DIAMOND DIGITAL DISPLAY DISTANT DOLPHIN DRAWING DYNAMIC ECONOMY EDITION ELDERLY ELEMENT ENGAGED ENHANCE ' +
+    'ESSENCE EVENING EXACTLY EXAMINE EXAMPLE EXCITED EXHIBIT EXPENSE EXPLAIN EXPLORE EXPRESS EXTREME FACTORY ' +
+    'FACULTY FAILURE FASHION FEATURE FEDERAL FEELING FICTION FIFTEEN FINANCE FINDING FITNESS FOREVER FORMULA ' +
+    'FORTUNE FORWARD FREEDOM FURTHER GALLERY GENERAL GENUINE GRAVITY HABITAT HARVEST HEALTHY HEARING HEAVILY ' +
+    'HIGHWAY HISTORY HOLIDAY HORIZON HOWEVER HUNDRED HUSBAND IMAGINE IMPROVE INCLUDE INITIAL INQUIRY INSIGHT ' +
+    'INSTALL INSTANT INSTEAD INTENSE JOURNAL JOURNEY JUSTICE KITCHEN LARGELY LEADING LIBRARY LICENSE MACHINE ' +
+    'MANAGER MAXIMUM MEASURE MEDICAL MEETING MESSAGE MILLION MINERAL MINIMUM MIRACLE MISSION MISTAKE MIXTURE ' +
+    'MONITOR MONSTER MORNING MUSICAL MYSTERY NATURAL NEITHER NERVOUS NETWORK NOTHING NOWHERE NUCLEAR OBVIOUS ' +
+    'OCTOPUS OFFICER ONGOING OPERATE OPINION ORGANIC OUTCOME OUTSIDE OVERALL PACKAGE PAINTER PARKING PARTNER ' +
+    'PASSAGE PASSION PATIENT PATTERN PAYMENT PENALTY PERFECT PERFORM PERHAPS PICTURE PIONEER PLASTIC POPULAR ' +
+    'PORTION POVERTY PRECISE PREDICT PREMIUM PREPARE PRESENT PREVENT PRIMARY PRIVATE PROBLEM PROCEED PROCESS ' +
+    'PRODUCE PRODUCT PROGRAM PROJECT PROMISE PROMOTE PROTECT PROTEIN PROVIDE PURPOSE PYRAMID QUALIFY QUALITY ' +
+    'QUARTER RADICAL REALITY RECEIPT RECEIVE RECOVER REFLECT REGULAR RELEASE REMAINS REPLACE REQUEST REQUIRE ' +
+    'RESERVE RESPECT RESPOND RESTORE REVENUE ROUTINE RUNNING SATISFY SCIENCE SEGMENT SERIOUS SERVICE SESSION ' +
+    'SETTING SEVENTY SHELTER SILENCE SIMILAR SOCIETY SOLDIER SOMEHOW SPEAKER SPECIAL SPECIES STATION STOMACH ' +
+    'STORAGE STRANGE STRETCH STUDENT SUBJECT SUCCEED SUCCESS SUGGEST SUMMARY SUPPORT SUPPOSE SUPREME SURFACE ' +
+    'SURGERY SURVIVE SUSPECT SUSTAIN TEACHER THEATER THERAPY THOUGHT THUNDER TONIGHT TOURISM TOWARDS TRAFFIC ' +
+    'TRAGEDY TRAINER TROUBLE TYPICAL UNIFORM UNKNOWN UNUSUAL UTILITY VARIETY VEHICLE VENTURE VERSION VETERAN ' +
+    'VICTORY VILLAGE VINTAGE VIOLENT VISIBLE VITAMIN VOLCANO WEATHER WEBSITE WEEKEND WELCOME WELFARE WESTERN ' +
+    'WHETHER WILLING WITHOUT WITNESS'
+  ).split(' ')
+};
+</script>
+<script>
+// Keyboard input: held-key state plus one-frame "just pressed" edges.
+window.WB = window.WB || {};
+
+WB.Input = (function () {
+  var down = {};
+  var pressed = {};
+
+  var ALIASES = {
+    ArrowLeft: 'left', KeyA: 'left',
+    ArrowRight: 'right', KeyD: 'right',
+    ArrowUp: 'up', KeyW: 'up',
+    ArrowDown: 'down', KeyS: 'down',
+    Space: 'bomb', KeyZ: 'bomb',
+    Enter: 'start'
+  };
+
+  function onKey(e, isDown) {
+    var name = ALIASES[e.code];
+    if (!name) return;
+    e.preventDefault();
+    if (isDown && !down[name]) pressed[name] = true;
+    down[name] = isDown;
+  }
+
+  return {
+    init: function () {
+      window.addEventListener('keydown', function (e) { onKey(e, true); });
+      window.addEventListener('keyup', function (e) { onKey(e, false); });
+      window.addEventListener('blur', function () { down = {}; });
+    },
+    isDown: function (name) { return !!down[name]; },
+    wasPressed: function (name) { return !!pressed[name]; },
+    // Call once at the end of each frame to consume edge events.
+    endFrame: function () { pressed = {}; }
+  };
+})();
+</script>
+<script>
+// Scrolling ground: procedurally placed forests, rivers and base plates.
+window.WB = window.WB || {};
+
+WB.Background = (function () {
+  var W = 480, H = 640;
+  var decors = [];   // {x, y, type, size}
+  var rivers = [];   // {y, h, x, w}  horizontal water bands
+  var nextDecorY;    // world-relative spawn cursor (in screen coords, above top)
+  var nextRiverY;
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  function spawnDecorRow(y) {
+    var n = 2 + Math.floor(Math.random() * 4);
+    for (var i = 0; i < n; i++) {
+      decors.push({
+        x: rand(10, W - 10),
+        y: y + rand(-20, 20),
+        type: Math.random() < 0.7 ? 'tree' : 'plate',
+        size: rand(8, 18)
+      });
+    }
+  }
+
+  function spawnRiver(y) {
+    rivers.push({ y: y, h: rand(26, 44), x: rand(-40, 40), w: W + 80 });
+  }
+
+  function reset() {
+    decors = [];
+    rivers = [];
+    for (var y = H; y > -80; y -= 60) spawnDecorRow(y);
+    spawnRiver(rand(-200, 100));
+    nextDecorY = -80;
+    nextRiverY = -rand(300, 700);
+  }
+
+  function update(dt, speed) {
+    var dy = speed * dt;
+    var i;
+    for (i = 0; i < decors.length; i++) decors[i].y += dy;
+    for (i = 0; i < rivers.length; i++) rivers[i].y += dy;
+    decors = decors.filter(function (d) { return d.y < H + 40; });
+    rivers = rivers.filter(function (r) { return r.y < H + 80; });
+
+    nextDecorY += dy;
+    while (nextDecorY > -20) {
+      spawnDecorRow(nextDecorY - 60);
+      nextDecorY -= 60;
+    }
+    nextRiverY += dy;
+    if (nextRiverY > -60) {
+      spawnRiver(nextRiverY - 60);
+      nextRiverY = -rand(500, 1100);
+    }
+  }
+
+  function draw(ctx) {
+    ctx.fillStyle = '#123016';
+    ctx.fillRect(0, 0, W, H);
+
+    var i, r, d;
+    for (i = 0; i < rivers.length; i++) {
+      r = rivers[i];
+      ctx.fillStyle = '#1b4965';
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.fillStyle = 'rgba(120,200,255,0.25)';
+      ctx.fillRect(r.x, r.y + 4, r.w, 3);
+      ctx.fillRect(r.x, r.y + r.h - 8, r.w, 3);
+    }
+
+    for (i = 0; i < decors.length; i++) {
+      d = decors[i];
+      if (d.type === 'tree') {
+        ctx.fillStyle = '#0c4a1e';
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#1a6b2f';
+        ctx.beginPath();
+        ctx.arc(d.x - d.size * 0.25, d.y - d.size * 0.25, d.size * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = '#3a4a42';
+        ctx.fillRect(d.x - d.size, d.y - d.size, d.size * 2, d.size * 2);
+        ctx.strokeStyle = '#5a6a5f';
+        ctx.strokeRect(d.x - d.size, d.y - d.size, d.size * 2, d.size * 2);
+      }
+    }
+  }
+
+  return { reset: reset, update: update, draw: draw };
+})();
+</script>
+<script>
+// Target-word logic: word selection, mask (mushikui) generation, and
+// candidate-set judging so any dictionary-consistent letter counts as correct.
+window.WB = window.WB || {};
+
+WB.WordGame = (function () {
+  var answer = '';
+  var len = 0;
+  var masked = [];     // boolean per position (still hidden from the player?)
+  var known = [];      // char or null per position (what the HUD shows)
+  var progress = 0;    // letters confirmed this attempt
+  var confirmed = [];  // chars bombed so far this attempt
+  var candidates = []; // dictionary words consistent with known[] + confirmed[]
+
+  function wordLenForLevel(level) {
+    return Math.min(7, 3 + Math.floor((level - 1) / 2));
+  }
+
+  function maskCountForLevel(level, wordLen) {
+    return Math.min(wordLen - 2, Math.floor((level - 1) / 2));
+  }
+
+  function rebuildCandidates() {
+    var pool = WB.WORDS[len];
+    candidates = pool.filter(function (w) {
+      for (var i = 0; i < len; i++) {
+        if (i < progress) {
+          if (w[i] !== confirmed[i]) return false;
+        } else if (known[i] !== null && w[i] !== known[i]) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }
+
+  function newWord(level) {
+    len = wordLenForLevel(level);
+    var pool = WB.WORDS[len];
+    answer = pool[Math.floor(Math.random() * pool.length)];
+
+    var idx = [];
+    for (var i = 0; i < len; i++) idx.push(i);
+    for (var j = idx.length - 1; j > 0; j--) {
+      var k = Math.floor(Math.random() * (j + 1));
+      var t = idx[j]; idx[j] = idx[k]; idx[k] = t;
+    }
+    var mc = maskCountForLevel(level, len);
+    masked = [];
+    known = [];
+    for (i = 0; i < len; i++) { masked.push(false); known.push(answer[i]); }
+    for (i = 0; i < mc; i++) { masked[idx[i]] = true; known[idx[i]] = null; }
+
+    progress = 0;
+    confirmed = [];
+    rebuildCandidates();
+  }
+
+  // Returns {correct, complete, wasMasked, word}
+  function bomb(letter) {
+    var ok = candidates.some(function (w) { return w[progress] === letter; });
+    if (!ok) return { correct: false, complete: false, wasMasked: false, word: null };
+
+    var wasMasked = masked[progress] && known[progress] === null;
+    confirmed.push(letter);
+    known[progress] = letter; // reveal (stays revealed even after a miss reset)
+    progress++;
+    rebuildCandidates();
+
+    if (progress === len) {
+      return { correct: true, complete: true, wasMasked: wasMasked, word: confirmed.join('') };
+    }
+    return { correct: true, complete: false, wasMasked: wasMasked, word: null };
+  }
+
+  // After a miss: restart the current word, keeping any revealed letters.
+  function resetProgress() {
+    progress = 0;
+    confirmed = [];
+    rebuildCandidates();
+  }
+
+  // Letters the spawner must keep supplying: every candidate's next letter.
+  function neededLetters() {
+    var set = {};
+    for (var i = 0; i < candidates.length; i++) set[candidates[i][progress]] = true;
+    return Object.keys(set);
+  }
+
+  function getDisplay() {
+    var out = [];
+    for (var i = 0; i < len; i++) {
+      out.push({
+        char: known[i] === null ? '_' : known[i],
+        done: i < progress,
+        current: i === progress,
+        hidden: known[i] === null
+      });
+    }
+    return out;
+  }
+
+  return {
+    newWord: newWord,
+    bomb: bomb,
+    resetProgress: resetProgress,
+    neededLetters: neededLetters,
+    getDisplay: getDisplay,
+    getLength: function () { return len; },
+    getProgress: function () { return progress; }
+  };
+})();
+</script>
+<script>
+// Turret spawner: keeps the letters the player needs flowing in,
+// mixed with decoys, so a word can never dead-end.
+window.WB = window.WB || {};
+
+WB.Spawner = (function () {
+  var W = 480, H = 640;
+  var ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  var turrets = [];
+  var timer = 0;
+  var sinceNeeded = 0; // spawns since we last guaranteed a needed letter
+
+  function interval(level) {
+    return Math.max(0.5, 1.25 - level * 0.06);
+  }
+
+  function pickX() {
+    for (var tries = 0; tries < 8; tries++) {
+      var x = 40 + Math.random() * (W - 80);
+      var ok = true;
+      for (var i = 0; i < turrets.length; i++) {
+        var t = turrets[i];
+        if (t.y < 60 && Math.abs(t.x - x) < 60) { ok = false; break; }
+      }
+      if (ok) return x;
+    }
+    return 40 + Math.random() * (W - 80);
+  }
+
+  function neededOnScreen() {
+    var needed = WB.WordGame.neededLetters();
+    for (var i = 0; i < turrets.length; i++) {
+      var t = turrets[i];
+      if (t.alive && t.letter && t.y < H * 0.75 && needed.indexOf(t.letter) >= 0) return true;
+    }
+    return false;
+  }
+
+  function spawnOne() {
+    var letter;
+    var needed = WB.WordGame.neededLetters();
+    var mustSupply = sinceNeeded >= 2 || !neededOnScreen();
+
+    if (mustSupply && needed.length > 0) {
+      letter = needed[Math.floor(Math.random() * needed.length)];
+      sinceNeeded = 0;
+    } else if (Math.random() < 0.15) {
+      letter = null; // blank bunker
+      sinceNeeded++;
+    } else {
+      letter = ALPHABET[Math.floor(Math.random() * 26)];
+      sinceNeeded++;
+    }
+    turrets.push(new WB.Turret(pickX(), -30, letter));
+  }
+
+  function reset() {
+    turrets = [];
+    timer = 0.2;
+    sinceNeeded = 99; // force a needed letter immediately
+  }
+
+  function update(dt, level, scrollSpeed) {
+    timer -= dt;
+    if (timer <= 0) {
+      spawnOne();
+      timer = interval(level);
+    }
+    for (var i = 0; i < turrets.length; i++) turrets[i].update(dt, scrollSpeed);
+    turrets = turrets.filter(function (t) { return !t.isGone(H); });
+  }
+
+  function draw(ctx) {
+    for (var i = 0; i < turrets.length; i++) turrets[i].draw(ctx);
+  }
+
+  return {
+    reset: reset,
+    update: update,
+    draw: draw,
+    getTurrets: function () { return turrets; }
+  };
+})();
+</script>
+<script>
+// Ground turret entity: a dome with an engraved letter (or a blank bunker).
+window.WB = window.WB || {};
+
+WB.Turret = function (x, y, letter) {
+  this.x = x;
+  this.y = y;
+  this.letter = letter; // null = blank bunker (no penalty, small score)
+  this.r = 20;
+  this.alive = true;
+  this.deadTimer = 0;   // wreck fade-out
+  this.angle = Math.random() * Math.PI * 2;
+};
+
+WB.Turret.prototype.update = function (dt, scrollSpeed) {
+  this.y += scrollSpeed * dt;
+  this.angle += dt * 0.8;
+  if (!this.alive) this.deadTimer += dt;
+};
+
+WB.Turret.prototype.isGone = function (H) {
+  return this.y > H + 40 || (!this.alive && this.deadTimer > 0.6);
+};
+
+WB.Turret.prototype.hitBy = function (bx, by, blastR) {
+  if (!this.alive) return false;
+  var dx = this.x - bx, dy = this.y - by;
+  return dx * dx + dy * dy <= (this.r + blastR) * (this.r + blastR);
+};
+
+WB.Turret.prototype.draw = function (ctx) {
+  var x = this.x, y = this.y;
+
+  if (!this.alive) {
+    var a = Math.max(0, 1 - this.deadTimer / 0.6);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#222';
+    ctx.beginPath();
+    ctx.arc(x, y, this.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    return;
+  }
+
+  // base plate
+  ctx.fillStyle = '#4a4a52';
+  ctx.fillRect(x - this.r - 4, y - this.r - 4, (this.r + 4) * 2, (this.r + 4) * 2);
+  ctx.strokeStyle = '#6a6a72';
+  ctx.strokeRect(x - this.r - 4, y - this.r - 4, (this.r + 4) * 2, (this.r + 4) * 2);
+
+  // rotating barrel (decorative — turrets never fire)
+  ctx.strokeStyle = '#8a8a92';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + Math.cos(this.angle) * (this.r + 8), y + Math.sin(this.angle) * (this.r + 8));
+  ctx.stroke();
+  ctx.lineWidth = 1;
+
+  // dome
+  ctx.fillStyle = this.letter ? '#7d3030' : '#555c66';
+  ctx.beginPath();
+  ctx.arc(x, y, this.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.beginPath();
+  ctx.arc(x, y, this.r - 3, -2.4, -0.6);
+  ctx.stroke();
+
+  if (this.letter) {
+    ctx.fillStyle = '#ffe9a8';
+    ctx.font = 'bold 22px Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.letter, x, y + 1);
+  }
+};
+</script>
+<script>
+// Player ship: 4-way movement clamped on screen, with a bombing reticle ahead.
+window.WB = window.WB || {};
+
+WB.Player = (function () {
+  var W = 480, H = 640;
+  var SPEED = 260;
+  var RETICLE_DIST = 130;
+  var x, y;
+
+  // Vertical range: mid-screen down to near the bottom, so the ship and
+  // its reticle both stay on screen.
+  var MIN_Y = H * 0.35;
+  var MAX_Y = H - 50;
+
+  function reset() {
+    x = W / 2;
+    y = H - 90;
+  }
+
+  function update(dt) {
+    var dx = 0, dy = 0;
+    if (WB.Input.isDown('left')) dx -= 1;
+    if (WB.Input.isDown('right')) dx += 1;
+    if (WB.Input.isDown('up')) dy -= 1;
+    if (WB.Input.isDown('down')) dy += 1;
+    if (dx !== 0 && dy !== 0) { dx *= 0.7071; dy *= 0.7071; }
+    x += dx * SPEED * dt;
+    y += dy * SPEED * dt;
+    if (x < 24) x = 24;
+    if (x > W - 24) x = W - 24;
+    if (y < MIN_Y) y = MIN_Y;
+    if (y > MAX_Y) y = MAX_Y;
+  }
+
+  function reticlePos() {
+    return { x: x, y: y - RETICLE_DIST };
+  }
+
+  function draw(ctx, time) {
+    // reticle
+    var r = reticlePos();
+    var pulse = 10 + Math.sin(time * 8) * 2;
+    ctx.strokeStyle = '#ff5a5a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(r.x - pulse - 5, r.y); ctx.lineTo(r.x - pulse + 3, r.y);
+    ctx.moveTo(r.x + pulse - 3, r.y); ctx.lineTo(r.x + pulse + 5, r.y);
+    ctx.moveTo(r.x, r.y - pulse - 5); ctx.lineTo(r.x, r.y - pulse + 3);
+    ctx.moveTo(r.x, r.y + pulse - 3); ctx.lineTo(r.x, r.y + pulse + 5);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+
+    // ship body
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = '#d8dee6';
+    ctx.beginPath();
+    ctx.moveTo(0, -18);
+    ctx.lineTo(7, 2);
+    ctx.lineTo(16, 12);
+    ctx.lineTo(6, 10);
+    ctx.lineTo(0, 16);
+    ctx.lineTo(-6, 10);
+    ctx.lineTo(-16, 12);
+    ctx.lineTo(-7, 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#4a90d9';
+    ctx.beginPath();
+    ctx.arc(0, -4, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    // engine flame
+    ctx.fillStyle = 'rgba(255,180,60,' + (0.6 + Math.sin(time * 30) * 0.3) + ')';
+    ctx.beginPath();
+    ctx.moveTo(-3, 16);
+    ctx.lineTo(0, 24 + Math.sin(time * 25) * 3);
+    ctx.lineTo(3, 16);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  return {
+    reset: reset,
+    update: update,
+    draw: draw,
+    reticlePos: reticlePos,
+    getPos: function () { return { x: x, y: y }; }
+  };
+})();
+</script>
+<script>
+// Bombs (lobbed at the reticle point) and explosion particles.
+window.WB = window.WB || {};
+
+WB.Bombs = (function () {
+  var FLIGHT = 0.4;   // seconds from release to impact
+  var BLAST_R = 26;
+  var COOLDOWN = 0.28;
+  var MAX_IN_FLIGHT = 2;
+
+  var bombs = [];      // {sx, sy, tx, ty, t}
+  var particles = [];  // {x, y, vx, vy, life, max, color, size}
+  var cooldown = 0;
+
+  function reset() {
+    bombs = [];
+    particles = [];
+    cooldown = 0;
+  }
+
+  function tryDrop() {
+    if (cooldown > 0 || bombs.length >= MAX_IN_FLIGHT) return;
+    var p = WB.Player.getPos();
+    var r = WB.Player.reticlePos();
+    bombs.push({ sx: p.x, sy: p.y - 10, tx: r.x, ty: r.y, t: 0 });
+    cooldown = COOLDOWN;
+  }
+
+  function explodeAt(x, y) {
+    for (var i = 0; i < 26; i++) {
+      var a = Math.random() * Math.PI * 2;
+      var sp = 40 + Math.random() * 160;
+      particles.push({
+        x: x, y: y,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 0, max: 0.35 + Math.random() * 0.35,
+        color: Math.random() < 0.5 ? '#ffb347' : (Math.random() < 0.5 ? '#ff6b35' : '#ffe66d'),
+        size: 2 + Math.random() * 4
+      });
+    }
+  }
+
+  // onImpact(x, y, blastRadius) is called for each bomb that lands.
+  function update(dt, onImpact) {
+    cooldown -= dt;
+    var landed = [];
+    for (var i = 0; i < bombs.length; i++) {
+      var b = bombs[i];
+      b.t += dt;
+      if (b.t >= FLIGHT) landed.push(b);
+    }
+    bombs = bombs.filter(function (b) { return b.t < FLIGHT; });
+    for (i = 0; i < landed.length; i++) {
+      explodeAt(landed[i].tx, landed[i].ty);
+      onImpact(landed[i].tx, landed[i].ty, BLAST_R);
+    }
+
+    for (i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      p.life += dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 0.92;
+      p.vy *= 0.92;
+    }
+    particles = particles.filter(function (p) { return p.life < p.max; });
+  }
+
+  function draw(ctx) {
+    var i;
+    for (i = 0; i < bombs.length; i++) {
+      var b = bombs[i];
+      var k = b.t / FLIGHT;
+      var x = b.sx + (b.tx - b.sx) * k;
+      var y = b.sy + (b.ty - b.sy) * k;
+      var scale = 1 - k * 0.55; // shrinks as it falls toward the ground
+
+      // ground shadow closing on the impact point
+      ctx.fillStyle = 'rgba(0,0,0,' + (0.15 + k * 0.25) + ')';
+      ctx.beginPath();
+      ctx.ellipse(b.tx, b.ty, 10 * (1 - k) + 4, 5 * (1 - k) + 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#2b2b33';
+      ctx.beginPath();
+      ctx.arc(x, y, 6 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#888';
+      ctx.fillRect(x - 1.5 * scale, y - 9 * scale, 3 * scale, 4 * scale);
+    }
+
+    for (i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      var a = 1 - p.life / p.max;
+      ctx.globalAlpha = a;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * a + 0.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  return { reset: reset, tryDrop: tryDrop, update: update, draw: draw, explodeAt: explodeAt };
+})();
+</script>
+<script>
+// HUD: score, lives, level, combo, the target word (with mushikui blanks)
+// and floating notice messages.
+window.WB = window.WB || {};
+
+WB.Hud = (function () {
+  var W = 480;
+  var messages = []; // {text, color, life, max, y}
+
+  function reset() {
+    messages = [];
+  }
+
+  function flash(text, color) {
+    messages.push({ text: text, color: color || '#fff', life: 0, max: 1.4, y: 300 });
+  }
+
+  function update(dt) {
+    for (var i = 0; i < messages.length; i++) {
+      messages[i].life += dt;
+      messages[i].y -= dt * 30;
+    }
+    messages = messages.filter(function (m) { return m.life < m.max; });
+  }
+
+  function draw(ctx, g) {
+    // top bar
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    ctx.fillRect(0, 0, W, 78);
+
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 15px Consolas, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#9fe8ff';
+    ctx.fillText('SCORE ' + g.score, 10, 16);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#ffd166';
+    ctx.fillText('HI ' + g.hiscore, W - 10, 16);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#c0c8d0';
+    ctx.fillText('LV ' + g.level, 10, 66);
+    if (g.combo > 1) {
+      ctx.fillStyle = '#ff9de2';
+      ctx.fillText('COMBO x' + g.comboMult().toFixed(1), 70, 66);
+    }
+    // lives as small ships
+    ctx.textAlign = 'right';
+    for (var l = 0; l < g.lives; l++) {
+      var lx = W - 14 - l * 20, ly = 66;
+      ctx.fillStyle = '#d8dee6';
+      ctx.beginPath();
+      ctx.moveTo(lx, ly - 7);
+      ctx.lineTo(lx + 6, ly + 6);
+      ctx.lineTo(lx, ly + 2);
+      ctx.lineTo(lx - 6, ly + 6);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // target word boxes
+    var disp = WB.WordGame.getDisplay();
+    var n = disp.length;
+    var bw = Math.min(34, (W - 40) / n - 6);
+    var totalW = n * (bw + 6) - 6;
+    var x0 = (W - totalW) / 2;
+    var y0 = 28;
+    ctx.font = 'bold ' + Math.floor(bw * 0.7) + 'px Consolas, monospace';
+    ctx.textAlign = 'center';
+    for (var i = 0; i < n; i++) {
+      var d = disp[i];
+      var bx = x0 + i * (bw + 6);
+      if (d.done) {
+        ctx.fillStyle = 'rgba(70,180,90,0.9)';
+      } else if (d.current) {
+        ctx.fillStyle = 'rgba(255,209,102,0.9)';
+      } else {
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      }
+      ctx.fillRect(bx, y0, bw, bw * 0.95);
+      if (d.current) {
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(bx, y0, bw, bw * 0.95);
+        ctx.lineWidth = 1;
+      }
+      ctx.fillStyle = d.done ? '#fff' : (d.current ? '#20232a' : '#e8ecf0');
+      var ch = d.char;
+      if (d.hidden && !d.done) ch = '?';
+      ctx.fillText(ch, bx + bw / 2, y0 + bw * 0.5);
+    }
+
+    // floating messages
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 24px Consolas, monospace';
+    for (i = 0; i < messages.length; i++) {
+      var m = messages[i];
+      ctx.globalAlpha = Math.max(0, 1 - m.life / m.max);
+      ctx.fillStyle = m.color;
+      ctx.fillText(m.text, W / 2, m.y);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  return { reset: reset, flash: flash, update: update, draw: draw };
+})();
+</script>
+<script>
+// Game state machine and scoring rules.
+window.WB = window.WB || {};
+
+WB.Game = (function () {
+  var W = 480, H = 640;
+  var WORDS_PER_LEVEL = 3;
+  var HISCORE_KEY = 'wordbomber.hiscore';
+
+  var state = 'title';
+  var score = 0, hiscore = 0, lives = 3, level = 1;
+  var wordsCompleted = 0;
+  var combo = 0; // consecutive words completed without a miss
+  var stateTimer = 0;
+
+  function loadHiscore() {
+    try { hiscore = parseInt(localStorage.getItem(HISCORE_KEY), 10) || 0; }
+    catch (e) { hiscore = 0; }
+  }
+
+  function saveHiscore() {
+    try { localStorage.setItem(HISCORE_KEY, String(hiscore)); } catch (e) {}
+  }
+
+  function comboMult() {
+    return Math.min(3, 1 + 0.5 * combo);
+  }
+
+  function scrollSpeed() {
+    return Math.min(150, 55 + level * 8);
+  }
+
+  function startGame() {
+    state = 'playing';
+    score = 0; lives = 3; level = 1;
+    wordsCompleted = 0; combo = 0;
+    WB.Background.reset();
+    WB.Player.reset();
+    WB.Bombs.reset();
+    WB.WordGame.newWord(level);
+    WB.Spawner.reset();
+    WB.Hud.reset();
+  }
+
+  function onLetterBombed(letter) {
+    var res = WB.WordGame.bomb(letter);
+    if (!res.correct) {
+      lives--;
+      combo = 0;
+      WB.WordGame.resetProgress();
+      WB.Hud.flash('MISS!', '#ff5a5a');
+      if (lives <= 0) {
+        state = 'gameover';
+        stateTimer = 0;
+        if (score > hiscore) { hiscore = score; saveHiscore(); }
+      }
+      return;
+    }
+
+    var pts = 100 * level * (res.wasMasked ? 2 : 1);
+    score += pts;
+    WB.Hud.flash('+' + pts, res.wasMasked ? '#ffd166' : '#9fe8ff');
+
+    if (res.complete) {
+      var bonus = Math.floor(500 * res.word.length * level * comboMult());
+      score += bonus;
+      combo++;
+      wordsCompleted++;
+      WB.Hud.flash(res.word + '  +' + bonus, '#7cf27c');
+      var newLevel = 1 + Math.floor(wordsCompleted / WORDS_PER_LEVEL);
+      if (newLevel > level) {
+        level = newLevel;
+        WB.Hud.flash('LEVEL ' + level + '!', '#ff9de2');
+      }
+      WB.WordGame.newWord(level);
+    }
+  }
+
+  function onImpact(x, y, blastR) {
+    var turrets = WB.Spawner.getTurrets();
+    for (var i = 0; i < turrets.length; i++) {
+      var t = turrets[i];
+      if (!t.hitBy(x, y, blastR)) continue;
+      t.alive = false;
+      if (t.letter) {
+        onLetterBombed(t.letter);
+        if (state !== 'playing') return;
+      } else {
+        score += 50 * level;
+        WB.Hud.flash('+' + (50 * level), '#c0c8d0');
+      }
+    }
+  }
+
+  function update(dt) {
+    stateTimer += dt;
+    if (state === 'title') {
+      WB.Background.update(dt, 40);
+      if (WB.Input.wasPressed('bomb') || WB.Input.wasPressed('start')) startGame();
+      return;
+    }
+    if (state === 'gameover') {
+      WB.Hud.update(dt);
+      WB.Bombs.update(dt, function () {});
+      if (stateTimer > 0.8 && (WB.Input.wasPressed('bomb') || WB.Input.wasPressed('start'))) {
+        startGame();
+      }
+      return;
+    }
+
+    // playing
+    WB.Background.update(dt, scrollSpeed());
+    WB.Player.update(dt);
+    if (WB.Input.wasPressed('bomb')) WB.Bombs.tryDrop();
+    WB.Spawner.update(dt, level, scrollSpeed());
+    WB.Bombs.update(dt, onImpact);
+    WB.Hud.update(dt);
+  }
+
+  function drawCenterText(ctx, lines) {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (var i = 0; i < lines.length; i++) {
+      var ln = lines[i];
+      ctx.font = ln.font;
+      ctx.fillStyle = ln.color;
+      ctx.fillText(ln.text, W / 2, ln.y);
+    }
+  }
+
+  function draw(ctx, time) {
+    WB.Background.draw(ctx);
+
+    if (state === 'title') {
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(0, 0, W, H);
+      drawCenterText(ctx, [
+        { text: 'WORD BOMBER', font: 'bold 46px Consolas, monospace', color: '#ffd166', y: 180 },
+        { text: '- 英単語爆撃作戦 -', font: '18px sans-serif', color: '#9fe8ff', y: 225 },
+        { text: 'お題の英単語の順番どおりに', font: '16px sans-serif', color: '#e8ecf0', y: 300 },
+        { text: '文字砲台を爆撃せよ!', font: '16px sans-serif', color: '#e8ecf0', y: 326 },
+        { text: '順番を間違えるとミス。虫食い(?)は推理しよう', font: '14px sans-serif', color: '#c0c8d0', y: 360 },
+        { text: '移動: ←→↑↓ / WASD    爆撃: SPACE / Z', font: '15px sans-serif', color: '#9fe8ff', y: 420 },
+        { text: (Math.floor(time * 2) % 2 === 0) ? 'PRESS SPACE' : '', font: 'bold 24px Consolas, monospace', color: '#fff', y: 500 },
+        { text: 'HI-SCORE ' + hiscore, font: '16px Consolas, monospace', color: '#ffd166', y: 560 }
+      ]);
+      return;
+    }
+
+    WB.Spawner.draw(ctx);
+    WB.Bombs.draw(ctx);
+    WB.Player.draw(ctx, time);
+    WB.Hud.draw(ctx, {
+      score: score, hiscore: hiscore, lives: lives, level: level,
+      combo: combo, comboMult: comboMult
+    });
+
+    if (state === 'gameover') {
+      ctx.fillStyle = 'rgba(0,0,0,0.65)';
+      ctx.fillRect(0, 0, W, H);
+      drawCenterText(ctx, [
+        { text: 'GAME OVER', font: 'bold 44px Consolas, monospace', color: '#ff5a5a', y: 240 },
+        { text: 'SCORE ' + score, font: 'bold 24px Consolas, monospace', color: '#9fe8ff', y: 320 },
+        { text: 'HI-SCORE ' + hiscore, font: '18px Consolas, monospace', color: '#ffd166', y: 358 },
+        { text: 'PRESS SPACE TO RETRY', font: 'bold 18px Consolas, monospace', color: '#fff', y: 440 }
+      ]);
+    }
+  }
+
+  return { update: update, draw: draw, loadHiscore: loadHiscore };
+})();
+</script>
+<script>
+// Bootstrap: canvas setup and the main loop.
+(function () {
+  var canvas = document.getElementById('game');
+  var ctx = canvas.getContext('2d');
+
+  WB.Input.init();
+  WB.Game.loadHiscore();
+  WB.Background.reset();
+  WB.WordGame.newWord(1); // so the HUD has a word even before the first game
+
+  var last = 0;
+  var time = 0;
+
+  function frame(ts) {
+    var dt = (ts - last) / 1000;
+    last = ts;
+    if (dt > 0.1) dt = 0.1; // tab-switch guard
+    time += dt;
+
+    WB.Game.update(dt);
+    WB.Game.draw(ctx, time);
+    WB.Input.endFrame();
+
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(function (ts) {
+    last = ts;
+    requestAnimationFrame(frame);
+  });
+})();
+</script>
+</body>
+</html>
