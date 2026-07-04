@@ -1,11 +1,14 @@
 // Player ship: 4-way movement clamped on screen, with a bombing reticle ahead.
+// Takes damage from enemy fire; brief invulnerability + blink after a hit.
 window.WB = window.WB || {};
 
 WB.Player = (function () {
   var W = 480, H = 640;
   var SPEED = 260;
   var RETICLE_DIST = 130;
-  var x, y;
+  var RADIUS = 13;
+  var INVULN = 1.6; // seconds of invulnerability after being hit
+  var x, y, invuln;
 
   // Vertical range: mid-screen down to near the bottom, so the ship and
   // its reticle both stay on screen.
@@ -15,9 +18,19 @@ WB.Player = (function () {
   function reset() {
     x = W / 2;
     y = H - 90;
+    invuln = 0;
+  }
+
+  function hit() {
+    invuln = INVULN;
+  }
+
+  function isInvulnerable() {
+    return invuln > 0;
   }
 
   function update(dt) {
+    if (invuln > 0) invuln -= dt;
     var dx = 0, dy = 0;
     if (WB.Input.isDown('left')) dx -= 1;
     if (WB.Input.isDown('right')) dx += 1;
@@ -53,6 +66,9 @@ WB.Player = (function () {
     ctx.stroke();
     ctx.lineWidth = 1;
 
+    // blink while invulnerable (skip drawing on alternating frames)
+    if (invuln > 0 && Math.floor(time * 20) % 2 === 0) return;
+
     // ship body
     ctx.save();
     ctx.translate(x, y);
@@ -87,7 +103,10 @@ WB.Player = (function () {
     reset: reset,
     update: update,
     draw: draw,
+    hit: hit,
+    isInvulnerable: isInvulnerable,
     reticlePos: reticlePos,
+    getRadius: function () { return RADIUS; },
     getPos: function () { return { x: x, y: y }; }
   };
 })();

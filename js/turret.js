@@ -9,6 +9,7 @@ WB.Turret = function (x, y, letter) {
   this.alive = true;
   this.deadTimer = 0;   // wreck fade-out
   this.angle = Math.random() * Math.PI * 2;
+  this.fireTimer = 2.5 + Math.random() * 3; // seconds until first shot
 };
 
 WB.Turret.prototype.update = function (dt, scrollSpeed) {

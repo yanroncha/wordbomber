@@ -31,171 +31,116 @@ html, body {
   <canvas id="game" width="480" height="640"></canvas>
 </div>
 <script>
-// WordBomber dictionary: common English words, uppercase, grouped by length.
+// WordBomber dictionary: curated common English words with Japanese
+// translations, grouped by length. Every completable word has a translation
+// so the "word complete" banner can always show its meaning.
 window.WB = window.WB || {};
 
-WB.WORDS = {
-  3: (
-    'ACE ACT ADD AGE AGO AID AIM AIR ALL AND ANT ANY APE ARM ART ASH ASK ATE ' +
-    'BAD BAG BAN BAR BAT BAY BED BEE BEG BET BIG BIN BIT BOX BOY BUD BUG BUS BUT BUY ' +
-    'CAB CAN CAP CAR CAT COP COW CRY CUP CUT DAD DAM DAY DEN DEW DIG DIM DIP DOG DOT DRY DUE DUG ' +
-    'EAR EAT EGG EGO END ERA EVE EYE FAN FAR FAT FEE FEW FIG FIN FIT FIX FLY FOG FOR FOX FUN FUR ' +
-    'GAP GAS GEM GET GOT GUM GUN GUT GUY GYM HAD HAM HAS HAT HAY HEN HER HID HIM HIP HIS HIT HOP HOT HOW HUB HUG HUT ' +
-    'ICE ICY ILL INK INN ION ITS JAM JAR JAW JET JOB JOG JOY KEY KID KIT ' +
-    'LAB LAD LAG LAP LAW LAY LEG LET LID LIE LIP LIT LOG LOT LOW ' +
-    'MAD MAN MAP MAT MAY MEN MET MIX MOB MOM MUD MUG NAP NET NEW NOD NOR NOT NOW NUT ' +
-    'OAK ODD OFF OIL OLD ONE OUR OUT OWE OWL OWN ' +
-    'PAD PAN PAT PAW PAY PEA PEN PET PIE PIG PIN PIT POT PRO PUB PUT ' +
-    'RAG RAM RAN RAT RAW RAY RED RIB RID RIM RIP ROB ROD ROT ROW RUB RUG RUN ' +
-    'SAD SAT SAW SAY SEA SEE SET SHE SHY SIN SIP SIR SIT SIX SKI SKY SON SPA SPY SUM SUN ' +
-    'TAB TAG TAN TAP TAX TEA TEN THE TIE TIN TIP TOE TON TOP TOY TRY TUB TWO ' +
-    'USE VAN VAT VET VIA WAR WAS WAX WAY WEB WET WHO WHY WIG WIN WON WOW YES YET YOU ZOO'
-  ).split(' '),
+WB.DICT = {
+  3: {
+    ACE: 'エース', ACT: '行動', AGE: '年齢', AID: '援助', AIM: '狙い', AIR: '空気',
+    ANT: 'アリ', ARM: '腕', ART: '芸術', BAG: 'かばん', BAT: 'コウモリ', BED: 'ベッド',
+    BEE: 'ハチ', BOX: '箱', BOY: '少年', BUS: 'バス', BUY: '買う', CAP: '帽子',
+    CAR: '車', CAT: 'ネコ', COW: '牛', CRY: '泣く', CUP: 'カップ', CUT: '切る',
+    DAY: '日', DOG: 'イヌ', EAR: '耳', EAT: '食べる', EGG: '卵', EYE: '目',
+    FAN: '扇', FLY: '飛ぶ', FOG: '霧', FOX: 'キツネ', GAS: 'ガス', GUN: '銃',
+    HAT: '帽子', HEN: 'めんどり', HIT: '打つ', ICE: '氷', INK: 'インク', JOB: '仕事',
+    KEY: '鍵', LEG: '脚', LIP: '唇', MAP: '地図', NET: '網', NUT: '木の実',
+    OWL: 'フクロウ', PEN: 'ペン', PIE: 'パイ', PIG: 'ブタ', PIN: 'ピン', POT: '鍋',
+    RAT: 'ネズミ', RUN: '走る', SEA: '海', SKY: '空', SON: '息子', SUN: '太陽',
+    TEA: '茶', TOE: 'つま先', TOP: '頂上', TOY: 'おもちゃ', VAN: 'バン', WAR: '戦争',
+    WEB: 'クモの巣', WIN: '勝つ', ZOO: '動物園'
+  },
+  4: {
+    BABY: '赤ちゃん', BALL: 'ボール', BEAR: 'クマ', BELL: 'ベル', BIRD: '鳥',
+    BLUE: '青', BOAT: 'ボート', BODY: '体', BONE: '骨', BOOK: '本', CAKE: 'ケーキ',
+    CARD: 'カード', CITY: '都市', COAT: 'コート', COIN: 'コイン', COLD: '寒い',
+    COOK: '料理する', CORN: 'トウモロコシ', DARK: '暗い', DEER: 'シカ', DESK: '机',
+    DOOR: 'ドア', DUCK: 'アヒル', EAST: '東', EASY: '簡単な', FACE: '顔', FALL: '落ちる',
+    FARM: '農場', FAST: '速い', FIRE: '火', FISH: '魚', FIVE: '五', FOOD: '食べ物',
+    FOOT: '足', FOUR: '四', FREE: '自由な', FROG: 'カエル', GAME: 'ゲーム', GATE: '門',
+    GIFT: '贈り物', GIRL: '少女', GOAT: 'ヤギ', GOLD: '金', GOOD: '良い', HAND: '手',
+    HARD: '硬い', HEAD: '頭', HELP: '助ける', HERO: '英雄', HIGH: '高い', HOME: '家',
+    HOPE: '希望', IRON: '鉄', KING: '王', KISS: 'キス', LAKE: '湖', LAMP: 'ランプ',
+    LAND: '陸地', LEAF: '葉', LION: 'ライオン', LONG: '長い', LOVE: '愛', MILK: '牛乳',
+    MOON: '月', NAME: '名前', NEAR: '近い', NEST: '巣', NOSE: '鼻', OPEN: '開ける',
+    PARK: '公園', PINK: 'ピンク', PLAY: '遊ぶ', RAIN: '雨', READ: '読む', RICE: '米',
+    RING: '指輪', ROAD: '道', ROCK: '岩', ROOF: '屋根', ROOM: '部屋', ROSE: 'バラ',
+    SALT: '塩', SAND: '砂', SEED: '種', SHIP: '船', SHOE: '靴', SHOP: '店',
+    SING: '歌う', SLOW: '遅い', SNOW: '雪', SOAP: '石鹸', SONG: '歌', STAR: '星',
+    STOP: '止まる', SWIM: '泳ぐ', TAIL: '尾', TALL: '高い', TIME: '時間', TOWN: '町',
+    TREE: '木', TRUE: '本当の', WALK: '歩く', WALL: '壁', WARM: '暖かい', WASH: '洗う',
+    WAVE: '波', WEST: '西', WIND: '風', WING: '翼', WOLF: 'オオカミ', WOOD: '木材',
+    WORD: '単語', YEAR: '年'
+  },
+  5: {
+    APPLE: 'リンゴ', BEACH: '浜辺', BEARD: 'あごひげ', BREAD: 'パン', BRAVE: '勇敢な',
+    BRICK: 'レンガ', BROWN: '茶色', CHAIR: '椅子', CLEAN: '清潔な', CLOCK: '時計',
+    CLOUD: '雲', COLOR: '色', CROWD: '群衆', CROWN: '王冠', DANCE: '踊る', DREAM: '夢',
+    DRESS: 'ドレス', DRINK: '飲む', EAGLE: 'ワシ', EARTH: '地球', EMPTY: '空の',
+    FIELD: '野原', FIGHT: '戦う', FLOOR: '床', FRESH: '新鮮な', FRUIT: '果物',
+    GHOST: '幽霊', GLASS: 'ガラス', GRAPE: 'ブドウ', GRASS: '草', GREEN: '緑',
+    HAPPY: '幸せな', HEART: '心臓', HEAVY: '重い', HORSE: '馬', HOTEL: 'ホテル',
+    HOUSE: '家', JUICE: 'ジュース', KNIFE: 'ナイフ', LARGE: '大きい', LAUGH: '笑う',
+    LEMON: 'レモン', LIGHT: '光', MONEY: 'お金', MONTH: '月', MOUSE: 'ネズミ',
+    MOUTH: '口', MUSIC: '音楽', NIGHT: '夜', NORTH: '北', OCEAN: '海洋', ONION: '玉ねぎ',
+    PAPER: '紙', PARTY: 'パーティー', PEACE: '平和', PHONE: '電話', PIANO: 'ピアノ',
+    PIZZA: 'ピザ', PLANT: '植物', PLATE: '皿', QUEEN: '女王', QUICK: '速い',
+    QUIET: '静かな', RIVER: '川', ROBOT: 'ロボット', ROUND: '丸い', SHARP: '鋭い',
+    SHEEP: '羊', SHIRT: 'シャツ', SHORT: '短い', SMILE: '笑顔', SNAKE: 'ヘビ',
+    SOUND: '音', SOUTH: '南', SPACE: '宇宙', SPORT: 'スポーツ', STONE: '石',
+    STORM: '嵐', STORY: '物語', SUGAR: '砂糖', SWEET: '甘い', TABLE: 'テーブル',
+    TIGER: 'トラ', TITLE: '題名', TODAY: '今日', TOOTH: '歯', TOWEL: 'タオル',
+    TOWER: '塔', TRAIN: '電車', VOICE: '声', WATER: '水', WHALE: 'クジラ',
+    WHEEL: '車輪', WHITE: '白', WOMAN: '女性', WORLD: '世界', YOUNG: '若い'
+  },
+  6: {
+    ANIMAL: '動物', ANSWER: '答え', AUTUMN: '秋', BANANA: 'バナナ', BASKET: 'かご',
+    BATTLE: '戦い', BEAUTY: '美しさ', BOTTLE: '瓶', BRIDGE: '橋', BUTTON: 'ボタン',
+    CAMERA: 'カメラ', CANDLE: 'ろうそく', CASTLE: '城', CHERRY: 'さくらんぼ',
+    CHURCH: '教会', CIRCLE: '円', CLEVER: '賢い', COFFEE: 'コーヒー', COTTON: '綿',
+    DANGER: '危険', DESERT: '砂漠', DINNER: '夕食', DOCTOR: '医者', DONKEY: 'ロバ',
+    DRAGON: '竜', ENERGY: 'エネルギー', ENGINE: 'エンジン', FAMILY: '家族',
+    FARMER: '農家', FINGER: '指', FLOWER: '花', FOREST: '森', FRIEND: '友達',
+    GARDEN: '庭', GOLDEN: '金色の', GROUND: '地面', HAMMER: 'ハンマー', ISLAND: '島',
+    JACKET: '上着', JUNGLE: 'ジャングル', KITTEN: '子猫', LADDER: 'はしご',
+    LETTER: '手紙', MARKET: '市場', MEMORY: '記憶', MINUTE: '分', MIRROR: '鏡',
+    MONKEY: 'サル', MOTHER: '母', NATURE: '自然', NEEDLE: '針', ORANGE: 'オレンジ',
+    PALACE: '宮殿', PARENT: '親', PENCIL: '鉛筆', PEOPLE: '人々', PLANET: '惑星',
+    POCKET: 'ポケット', POTATO: 'じゃがいも', PURPLE: '紫', RABBIT: 'ウサギ',
+    RIBBON: 'リボン', ROCKET: 'ロケット', SCHOOL: '学校', SILVER: '銀', SPIDER: 'クモ',
+    SPRING: '春', SQUARE: '正方形', STREET: '通り', SUMMER: '夏', SUNSET: '日没',
+    TEMPLE: '寺', TICKET: '切符', TONGUE: '舌', TUNNEL: 'トンネル', TURTLE: 'カメ',
+    VALLEY: '谷', WINDOW: '窓', WINTER: '冬', WIZARD: '魔法使い', YELLOW: '黄色'
+  },
+  7: {
+    AIRPORT: '空港', BALLOON: '風船', BEDROOM: '寝室', BICYCLE: '自転車',
+    BLANKET: '毛布', BROTHER: '兄弟', CABBAGE: 'キャベツ', CAPTAIN: '船長',
+    CEILING: '天井', CHICKEN: '鶏', COMPANY: '会社', COUNTRY: '国', CRICKET: 'コオロギ',
+    CRYSTAL: '水晶', CURTAIN: 'カーテン', DENTIST: '歯医者', DESSERT: 'デザート',
+    DIAMOND: 'ダイヤモンド', DOLPHIN: 'イルカ', EVENING: '夕方', FACTORY: '工場',
+    FEATHER: '羽', FREEDOM: '自由', GENERAL: '将軍', GORILLA: 'ゴリラ', HARVEST: '収穫',
+    HISTORY: '歴史', HOLIDAY: '休日', HUSBAND: '夫', JOURNEY: '旅', KITCHEN: '台所',
+    LIBRARY: '図書館', MACHINE: '機械', MONSTER: '怪物', MORNING: '朝', MYSTERY: '謎',
+    OCTOPUS: 'タコ', PAINTER: '画家', PANCAKE: 'パンケーキ', PENGUIN: 'ペンギン',
+    PICTURE: '絵', POPCORN: 'ポップコーン', PRESENT: '贈り物', PROMISE: '約束',
+    PUMPKIN: 'カボチャ', RAINBOW: '虹', SCIENCE: '科学', SEASIDE: '海辺', SOLDIER: '兵士',
+    STATION: '駅', STOMACH: '胃', STUDENT: '学生', SUNRISE: '日の出', TEACHER: '先生',
+    THUNDER: '雷', TUESDAY: '火曜日', VILLAGE: '村', VOLCANO: '火山', WEATHER: '天気',
+    WEDDING: '結婚式', WHISTLE: '笛'
+  }
+};
 
-  4: (
-    'ABLE ACID AREA ARMY BABY BACK BAIT BAKE BALL BAND BANK BARE BARK BARN BASE BATH BEAM BEAN BEAR BEAT ' +
-    'BELL BELT BEND BEST BIKE BILL BIRD BITE BLOW BLUE BOAT BODY BOIL BOLD BOLT BOMB BOND BONE BOOK BOOM ' +
-    'BOOT BORN BOSS BOTH BOWL BULK BULL BURN BUSH BUSY CAGE CAKE CALL CALM CAMP CARD CARE CART CASE CASH ' +
-    'CAST CAVE CELL CHAT CHEF CHIP CITY CLAP CLAW CLAY CLIP CLUB COAL COAT CODE COIN COLD COMB COME COOK ' +
-    'COOL COPE COPY CORD CORE CORN COST COZY CRAB CREW CROP CROW CUBE CURE CUTE DARE DARK DATA DATE DAWN ' +
-    'DEAD DEAL DEAR DEBT DECK DEEP DEER DESK DIAL DICE DIET DIRT DISH DIVE DOCK DOES DOLL DOME DOOR DOSE ' +
-    'DOWN DRAG DRAW DREW DRIP DROP DRUM DUCK DULL DUST DUTY EACH EARN EASE EAST EASY EDGE ELSE EVEN EVER ' +
-    'EXIT FACE FACT FADE FAIL FAIR FALL FARM FAST FATE FEAR FEED FEEL FEET FELL FELT FILE FILL FILM FIND ' +
-    'FINE FIRE FIRM FISH FIST FIVE FLAG FLAT FLEW FLIP FLOW FOAM FOLD FOLK FOOD FOOT FORK FORM FORT FOUR ' +
-    'FREE FROG FROM FUEL FULL FUND GAIN GAME GATE GAVE GEAR GIFT GIRL GIVE GLAD GLOW GLUE GOAL GOAT GOES ' +
-    'GOLD GOLF GONE GOOD GRAB GRAY GREW GRID GRIN GRIP GROW GULF HAIR HALF HALL HAND HANG HARD HARM HATE ' +
-    'HAVE HAWK HEAD HEAL HEAR HEAT HEEL HELD HELP HERB HERD HERE HERO HIDE HIGH HIKE HILL HINT HIRE HOLD ' +
-    'HOLE HOME HOOK HOPE HORN HOSE HOST HOUR HUGE HUNT HURT ICON IDEA INCH INTO IRON ITEM JAZZ JOIN JOKE ' +
-    'JUMP JURY JUST KEEN KEEP KEPT KICK KIND KING KISS KITE KNEE KNEW KNOB KNOT KNOW LACE LACK LADY LAID ' +
-    'LAKE LAMB LAMP LAND LANE LAST LATE LAWN LAZY LEAD LEAF LEAN LEAP LEFT LEND LENS LESS LIFE LIFT LIKE ' +
-    'LIME LINE LINK LION LIST LIVE LOAD LOAF LOAN LOCK LOGO LONG LOOK LOOP LORD LOSE LOSS LOST LOUD LOVE ' +
-    'LUCK LUNG MADE MAIL MAIN MAKE MALL MANY MARK MASK MASS MATH MEAL MEAN MEAT MEET MELT MENU MESS MICE ' +
-    'MILD MILE MILK MIND MINE MINT MISS MIST MODE MOOD MOON MORE MOSS MOST MOTH MOVE MUCH MUST MYTH NAIL ' +
-    'NAME NAVY NEAR NEAT NECK NEED NEST NEWS NEXT NICE NINE NODE NONE NOON NOSE NOTE NOUN OBEY ODDS ONCE ' +
-    'ONLY OPEN ORAL OVAL OVEN OVER PACE PACK PAGE PAID PAIN PAIR PALE PALM PARK PART PASS PAST PATH PEAK ' +
-    'PEAR PEEL PICK PIER PILE PILL PINE PINK PIPE PLAN PLAY PLOT PLUG PLUS POEM POET POLE POND POOL POOR ' +
-    'PORT POSE POST POUR PRAY PULL PUMP PURE PUSH QUIT QUIZ RACE RACK RAIL RAIN RANK RARE RATE READ REAL ' +
-    'REAR RENT REST RICE RICH RIDE RING RIPE RISE RISK ROAD ROAR ROCK ROLE ROLL ROOF ROOM ROOT ROPE ROSE ' +
-    'RUBY RUDE RULE RUSH RUST SAFE SAID SAIL SALE SALT SAME SAND SAVE SEAL SEAT SEED SEEK SEEM SEEN SELF ' +
-    'SELL SEND SENT SHIP SHOE SHOP SHOT SHOW SHUT SICK SIDE SIGN SILK SING SINK SITE SIZE SKIN SLIP SLOW ' +
-    'SNAP SNOW SOAP SOCK SOFA SOFT SOIL SOLD SOLE SOME SONG SOON SORT SOUL SOUP SPIN SPOT STAR STAY STEM ' +
-    'STEP STIR STOP SUCH SUIT SURE SWAN SWIM TAIL TAKE TALE TALK TALL TANK TAPE TASK TAXI TEAM TEAR TELL ' +
-    'TENT TERM TEST TEXT THAN THAT THEM THEN THEY THIN THIS TIDE TIDY TIME TINY TIRE TOLD TONE TOOK TOOL ' +
-    'TOUR TOWN TRAP TRAY TREE TRIM TRIP TRUE TUBE TUNE TURN TWIN TYPE UGLY UNIT UPON USED USER VARY VAST ' +
-    'VERB VERY VIEW VOTE WAGE WAIT WAKE WALK WALL WANT WARM WASH WAVE WEAK WEAR WEEK WELL WENT WERE WEST ' +
-    'WHAT WHEN WHOM WIDE WIFE WILD WILL WIND WINE WING WIPE WIRE WISE WISH WITH WOLF WOOD WOOL WORD WORE ' +
-    'WORK WORM WRAP YARD YEAR ZERO ZONE'
-  ).split(' '),
+// Derive length-keyed arrays used by the word/spawner logic.
+WB.WORDS = {};
+Object.keys(WB.DICT).forEach(function (len) {
+  WB.WORDS[len] = Object.keys(WB.DICT[len]);
+});
 
-  5: (
-    'ABOUT ABOVE ACTOR ADAPT ADMIT ADOPT ADULT AFTER AGAIN AGENT AGREE AHEAD ALARM ALBUM ALERT ALIKE ALIVE ' +
-    'ALLOW ALONE ALONG ALOUD ANGEL ANGER ANGLE ANGRY ANKLE APART APPLE APPLY APRON ARENA ARGUE ARISE ARMOR ' +
-    'AROSE ARRAY ARROW ASIDE AVOID AWAKE AWARD AWARE BADGE BAKER BASIC BEACH BEGAN BEGIN BEING BELOW BENCH ' +
-    'BERRY BIRTH BLACK BLADE BLAME BLANK BLAST BLAZE BLEND BLESS BLIND BLOCK BLOOD BLOOM BOARD BONUS BOOST ' +
-    'BOOTH BOUND BRAIN BRAND BRAVE BREAD BREAK BRICK BRIDE BRIEF BRING BROAD BROKE BROOK BROWN BRUSH BUILD ' +
-    'BUNCH BURST CABIN CABLE CANDY CARGO CARRY CATCH CAUSE CHAIN CHAIR CHALK CHARM CHART CHASE CHEAP CHECK ' +
-    'CHEEK CHEER CHESS CHEST CHIEF CHILD CHILL CHOIR CHOSE CIVIL CLAIM CLASS CLEAN CLEAR CLERK CLICK CLIFF ' +
-    'CLIMB CLOCK CLOSE CLOTH CLOUD COACH COAST COLOR COMET COMIC CORAL COUCH COUNT COURT COVER CRACK CRAFT ' +
-    'CRANE CRASH CRAZY CREAM CRIME CROSS CROWD CROWN CRUSH CURVE CYCLE DAILY DAIRY DANCE DEALT DEATH DELAY ' +
-    'DEPTH DIARY DIRTY DOZEN DRAFT DRAIN DRAMA DREAM DRESS DRIED DRIFT DRILL DRINK DRIVE DROVE DYING EAGER ' +
-    'EAGLE EARLY EARTH EIGHT ELBOW ELECT EMPTY ENEMY ENJOY ENTER ENTRY EQUAL ERROR EVENT EVERY EXACT EXIST ' +
-    'EXTRA FAITH FALSE FANCY FAULT FAVOR FEAST FENCE FEVER FIBER FIELD FIFTH FIFTY FIGHT FINAL FIRST FLAME ' +
-    'FLASH FLEET FLESH FLOAT FLOCK FLOOD FLOOR FLOUR FLUID FOCUS FORCE FORTH FORTY FORUM FOUND FRAME FRESH ' +
-    'FRONT FROST FRUIT FUNNY GHOST GIANT GIVEN GLASS GLOBE GLORY GLOVE GRACE GRADE GRAIN GRAND GRANT GRAPE ' +
-    'GRASP GRASS GRAVE GREAT GREEN GREET GRIEF GRILL GROUP GROVE GROWN GUARD GUESS GUEST GUIDE HABIT HAPPY ' +
-    'HARSH HEART HEAVY HELLO HENCE HOBBY HONEY HONOR HORSE HOTEL HOUSE HUMAN HUMOR HURRY IDEAL IMAGE INDEX ' +
-    'INNER INPUT ISSUE JOINT JUDGE JUICE KNIFE KNOCK KNOWN LABEL LABOR LARGE LASER LATER LAUGH LAYER LEARN ' +
-    'LEAST LEAVE LEGAL LEMON LEVEL LIGHT LIMIT LOCAL LOGIC LOOSE LOWER LOYAL LUCKY LUNCH MAGIC MAJOR MAKER ' +
-    'MAPLE MARCH MATCH MAYBE MAYOR MEANT MEDAL MEDIA MELON MERCY MERGE MERIT METAL METER MIGHT MINOR MINUS ' +
-    'MIXED MODEL MONEY MONTH MORAL MOTOR MOUNT MOUSE MOUTH MOVIE MUSIC NERVE NEVER NEWLY NIGHT NOBLE NOISE ' +
-    'NORTH NOTED NOVEL NURSE OCCUR OCEAN OFFER OFTEN OLIVE ONION ORDER OTHER OUGHT OUTER OWNER PAINT PANEL ' +
-    'PANIC PAPER PARTY PASTE PATCH PAUSE PEACE PEACH PEARL PENNY PHASE PHONE PHOTO PIANO PIECE PILOT PITCH ' +
-    'PIZZA PLACE PLAIN PLANE PLANT PLATE PLAZA POINT POLAR POUND POWER PRESS PRICE PRIDE PRIME PRINT PRIZE ' +
-    'PROOF PROUD PROVE PUPIL QUEEN QUICK QUIET QUITE QUOTE RADAR RADIO RAISE RALLY RANCH RANGE RAPID RATIO ' +
-    'REACH REACT READY REBEL REFER RELAX REPLY RIDER RIGHT RIGID RISKY RIVAL RIVER ROAST ROBIN ROBOT ROCKY ' +
-    'ROUGH ROUND ROUTE ROYAL RURAL SADLY SALAD SAUCE SCALE SCARE SCENE SCENT SCOPE SCORE SCOUT SCRAP SENSE ' +
-    'SERVE SEVEN SHADE SHAKE SHALL SHAME SHAPE SHARE SHARK SHARP SHEEP SHEET SHELF SHELL SHIFT SHINE SHINY ' +
-    'SHIRT SHOCK SHOOT SHORE SHORT SHOUT SHOWN SIGHT SILLY SINCE SIXTH SIXTY SKILL SKIRT SLEEP SLICE SLIDE ' +
-    'SLOPE SMALL SMART SMELL SMILE SMOKE SNACK SNAKE SOLAR SOLID SOLVE SORRY SOUND SOUTH SPACE SPARE SPARK ' +
-    'SPEAK SPEED SPELL SPEND SPICE SPINE SPLIT SPOKE SPORT SPRAY STAFF STAGE STAIR STAKE STAMP STAND STARE ' +
-    'START STATE STEAK STEAL STEAM STEEL STEEP STICK STIFF STILL STOCK STONE STOOD STORE STORM STORY STOVE ' +
-    'STRAP STRAW STRIP STUCK STUDY STUFF STYLE SUGAR SUITE SUNNY SUPER SWEEP SWEET SWIFT SWING SWORD TABLE ' +
-    'TASTE TEACH TEETH TENSE TENTH THANK THEFT THEIR THEME THERE THESE THICK THIEF THING THINK THIRD THOSE ' +
-    'THREE THREW THROW THUMB TIGER TIGHT TIRED TITLE TODAY TOKEN TOOTH TOPIC TOTAL TOUCH TOUGH TOWEL TOWER ' +
-    'TOXIC TRACE TRACK TRADE TRAIL TRAIN TRAIT TRASH TREAT TREND TRIAL TRIBE TRICK TRIED TRUCK TRULY TRUNK ' +
-    'TRUST TRUTH TWICE TWIST UNCLE UNDER UNION UNITE UNITY UNTIL UPPER UPSET URBAN USAGE USUAL VALID VALUE ' +
-    'VIDEO VIRUS VISIT VITAL VOCAL VOICE WAGON WASTE WATCH WATER WHALE WHEAT WHEEL WHERE WHICH WHILE WHITE ' +
-    'WHOLE WHOSE WIDTH WOMAN WORLD WORRY WORSE WORST WORTH WOULD WOUND WRIST WRITE WRONG WROTE YIELD YOUNG YOUTH'
-  ).split(' '),
-
-  6: (
-    'ABSORB ACCEPT ACCESS ACROSS ACTION ACTIVE ADVICE AFFORD AGENCY AGENDA ALMOST ALWAYS AMOUNT ANCHOR ANIMAL ' +
-    'ANNUAL ANSWER ANYONE ANYWAY APPEAL APPEAR AROUND ARRIVE ARTIST ASPECT ASSIST ASSUME ATTACK ATTEND AUTHOR ' +
-    'AUTUMN AVENUE BACKUP BANANA BASKET BATTLE BEAUTY BECAME BECOME BEFORE BEHALF BEHAVE BEHIND BELIEF BELONG ' +
-    'BESIDE BETTER BEYOND BORDER BOTTLE BOTTOM BOUGHT BRANCH BREATH BRIDGE BRIGHT BROKEN BUDGET BURDEN BUTTON ' +
-    'CAMERA CANCEL CANDLE CANNOT CANVAS CARBON CAREER CASTLE CASUAL CAUGHT CENTER CHANCE CHANGE CHARGE CHERRY ' +
-    'CHOICE CHOOSE CHOSEN CHURCH CIRCLE CLIENT CLOSED CLOSET COFFEE COLUMN COMBAT COMEDY COMMON COPPER CORNER ' +
-    'COSTLY COTTON COUPLE COURSE COUSIN CREATE CREDIT CRISIS CUSTOM DAMAGE DANCER DANGER DEBATE DECADE DECIDE ' +
-    'DEFEAT DEFEND DEFINE DEGREE DELETE DEMAND DENTAL DEPEND DEPUTY DESERT DESIGN DESIRE DETAIL DEVICE DINNER ' +
-    'DIRECT DOCTOR DOLLAR DOMAIN DOUBLE DRAGON DRAWER DRIVEN DURING EASILY EATING EDITOR EFFECT EFFORT EIGHTY ' +
-    'EITHER ELEVEN EMPIRE ENABLE ENERGY ENGAGE ENGINE ENOUGH ENSURE ENTIRE ESCAPE ESTATE EXCEED EXCEPT EXCESS ' +
-    'EXPAND EXPECT EXPERT EXPORT EXTEND EXTENT FABRIC FACTOR FAIRLY FALLEN FAMILY FAMOUS FATHER FELLOW FEMALE ' +
-    'FIGURE FILTER FINGER FINISH FLIGHT FLOWER FLYING FOLLOW FORCED FOREST FORGET FORMAL FORMAT FORMER FOSTER ' +
-    'FOUGHT FOURTH FRIEND FROZEN FUTURE GARAGE GARDEN GATHER GENDER GENIUS GENTLE GLOBAL GOLDEN GROUND GROWTH ' +
-    'GUITAR HANDLE HAPPEN HARDLY HEALTH HEIGHT HIDDEN HOLDER HONEST HORROR HUMBLE HUNGRY IGNORE IMPACT IMPORT ' +
-    'INCOME INDEED INJURY INSECT INSIDE INTENT INVEST INVITE ISLAND JACKET JUNGLE JUNIOR KETTLE KIDNEY KNIGHT ' +
-    'LADDER LAPTOP LATELY LATTER LAUNCH LAWYER LEADER LEAGUE LEGACY LEGEND LENGTH LESSON LETTER LIKELY LIQUID ' +
-    'LISTEN LITTLE LIVING LOCATE LONELY LUXURY MAINLY MAKEUP MAMMAL MANAGE MANNER MARBLE MARGIN MARINE MARKET ' +
-    'MASTER MATTER MATURE MEADOW MEDIUM MEMBER MEMORY MENTAL MENTOR METHOD MIDDLE MIRROR MOBILE MODERN MODEST ' +
-    'MODULE MOMENT MONKEY MOTHER MOTION MUSEUM MUTUAL MYSELF NARROW NATION NATIVE NATURE NEARBY NEARLY NEEDLE ' +
-    'NEPHEW NICKEL NOBODY NORMAL NOTICE NOTION NUMBER OBJECT OBTAIN OFFICE ONLINE OPTION ORANGE ORIGIN OUTPUT ' +
-    'OXYGEN PALACE PARADE PARENT PARTLY PATENT PENCIL PEOPLE PEPPER PERIOD PERMIT PERSON PHRASE PICKUP PICNIC ' +
-    'PLANET PLAYER PLEASE PLENTY POCKET POETRY POLICE POLICY POLISH PORTAL POSTER POTATO PRAISE PRAYER PREFER ' +
-    'PRETTY PRINCE PRISON PROFIT PROMPT PROPER PROVEN PUBLIC PURPLE PURSUE PUZZLE RABBIT RACIAL RANDOM RARELY ' +
-    'RATHER REALLY REASON RECALL RECENT RECIPE RECORD REDUCE REFORM REFUSE REGARD REGION REGRET RELATE REMAIN ' +
-    'REMIND REMOTE REMOVE REPAIR REPEAT REPORT RESCUE RESIST RESORT RESULT RETAIL RETAIN RETIRE RETURN REVEAL ' +
-    'REVIEW REWARD RHYTHM RIBBON RIDING ROCKET RUBBER SAFETY SALARY SAMPLE SCHEME SCHOOL SCREEN SCRIPT SEARCH ' +
-    'SEASON SECOND SECRET SECTOR SECURE SELECT SENIOR SERIES SERVER SETTLE SEVERE SHADOW SHOULD SHOWER SHRIMP ' +
-    'SIGNAL SILENT SILVER SIMPLE SIMPLY SINGER SINGLE SISTER SLIGHT SMOOTH SOCCER SOCIAL SOURCE SPEECH SPHERE ' +
-    'SPIRIT SPREAD SPRING SQUARE STABLE STATUE STATUS STEADY STOLEN STRAIN STRAND STREAM STREET STRESS STRICT ' +
-    'STRIKE STRING STRONG STRUCK SUBMIT SUBTLE SUDDEN SUFFER SUMMER SUMMIT SUNSET SUPPLY SURELY SURVEY SWITCH ' +
-    'SYMBOL SYSTEM TACKLE TALENT TARGET TEMPLE TENANT TENDER TENNIS THEORY THIRTY THREAD THREAT THROWN TICKET ' +
-    'TIMBER TISSUE TOMATO TONGUE TOWARD TRAVEL TREATY TRIPLE TROPHY TUNNEL TURTLE TWELVE TWENTY UNABLE UNIQUE ' +
-    'UNITED UNLESS UNLIKE UPDATE UPWARD URGENT USEFUL VALLEY VENDOR VERSUS VESSEL VICTIM VIOLET VIRTUE VISION ' +
-    'VISUAL VOLUME WALLET WEALTH WEAPON WEEKLY WEIGHT WINDOW WINNER WINTER WISDOM WITHIN WONDER WOODEN WORKER ' +
-    'WRITER YELLOW'
-  ).split(' '),
-
-  7: (
-    'ABILITY ABSENCE ACCOUNT ACHIEVE ACQUIRE ADDRESS ADVANCE ADVISER AGAINST AIRLINE AIRPORT ALCOHOL ALREADY ' +
-    'AMAZING ANCIENT ANOTHER ANXIETY ANYBODY APPLIED ARRANGE ARRIVAL ARTICLE ATTEMPT ATTRACT AUCTION AVERAGE ' +
-    'BALANCE BANKING BARRIER BATTERY BEDROOM BELIEVE BENEATH BENEFIT BETWEEN BICYCLE BILLION BLANKET BROTHER ' +
-    'BROUGHT BUILDER CABINET CAPABLE CAPITAL CAPTAIN CAPTURE CAREFUL CARRIER CAUTION CEILING CENTRAL CENTURY ' +
-    'CERTAIN CHAMBER CHANNEL CHAPTER CHARITY CHICKEN CIRCUIT CITIZEN CLASSIC CLIMATE CLOTHES COLLECT COLLEGE ' +
-    'COMBINE COMFORT COMMAND COMMENT COMPANY COMPARE COMPETE COMPLEX CONCEPT CONCERN CONCERT CONDUCT CONFIRM ' +
-    'CONNECT CONSIST CONTACT CONTAIN CONTENT CONTEST CONTEXT CONTROL CONVERT CORRECT COTTAGE COUNCIL COUNTER ' +
-    'COUNTRY COURAGE CRICKET CRYSTAL CULTURE CURIOUS CURRENT DELIVER DENSITY DESPITE DESSERT DESTROY DEVELOP ' +
-    'DIAMOND DIGITAL DISPLAY DISTANT DOLPHIN DRAWING DYNAMIC ECONOMY EDITION ELDERLY ELEMENT ENGAGED ENHANCE ' +
-    'ESSENCE EVENING EXACTLY EXAMINE EXAMPLE EXCITED EXHIBIT EXPENSE EXPLAIN EXPLORE EXPRESS EXTREME FACTORY ' +
-    'FACULTY FAILURE FASHION FEATURE FEDERAL FEELING FICTION FIFTEEN FINANCE FINDING FITNESS FOREVER FORMULA ' +
-    'FORTUNE FORWARD FREEDOM FURTHER GALLERY GENERAL GENUINE GRAVITY HABITAT HARVEST HEALTHY HEARING HEAVILY ' +
-    'HIGHWAY HISTORY HOLIDAY HORIZON HOWEVER HUNDRED HUSBAND IMAGINE IMPROVE INCLUDE INITIAL INQUIRY INSIGHT ' +
-    'INSTALL INSTANT INSTEAD INTENSE JOURNAL JOURNEY JUSTICE KITCHEN LARGELY LEADING LIBRARY LICENSE MACHINE ' +
-    'MANAGER MAXIMUM MEASURE MEDICAL MEETING MESSAGE MILLION MINERAL MINIMUM MIRACLE MISSION MISTAKE MIXTURE ' +
-    'MONITOR MONSTER MORNING MUSICAL MYSTERY NATURAL NEITHER NERVOUS NETWORK NOTHING NOWHERE NUCLEAR OBVIOUS ' +
-    'OCTOPUS OFFICER ONGOING OPERATE OPINION ORGANIC OUTCOME OUTSIDE OVERALL PACKAGE PAINTER PARKING PARTNER ' +
-    'PASSAGE PASSION PATIENT PATTERN PAYMENT PENALTY PERFECT PERFORM PERHAPS PICTURE PIONEER PLASTIC POPULAR ' +
-    'PORTION POVERTY PRECISE PREDICT PREMIUM PREPARE PRESENT PREVENT PRIMARY PRIVATE PROBLEM PROCEED PROCESS ' +
-    'PRODUCE PRODUCT PROGRAM PROJECT PROMISE PROMOTE PROTECT PROTEIN PROVIDE PURPOSE PYRAMID QUALIFY QUALITY ' +
-    'QUARTER RADICAL REALITY RECEIPT RECEIVE RECOVER REFLECT REGULAR RELEASE REMAINS REPLACE REQUEST REQUIRE ' +
-    'RESERVE RESPECT RESPOND RESTORE REVENUE ROUTINE RUNNING SATISFY SCIENCE SEGMENT SERIOUS SERVICE SESSION ' +
-    'SETTING SEVENTY SHELTER SILENCE SIMILAR SOCIETY SOLDIER SOMEHOW SPEAKER SPECIAL SPECIES STATION STOMACH ' +
-    'STORAGE STRANGE STRETCH STUDENT SUBJECT SUCCEED SUCCESS SUGGEST SUMMARY SUPPORT SUPPOSE SUPREME SURFACE ' +
-    'SURGERY SURVIVE SUSPECT SUSTAIN TEACHER THEATER THERAPY THOUGHT THUNDER TONIGHT TOURISM TOWARDS TRAFFIC ' +
-    'TRAGEDY TRAINER TROUBLE TYPICAL UNIFORM UNKNOWN UNUSUAL UTILITY VARIETY VEHICLE VENTURE VERSION VETERAN ' +
-    'VICTORY VILLAGE VINTAGE VIOLENT VISIBLE VITAMIN VOLCANO WEATHER WEBSITE WEEKEND WELCOME WELFARE WESTERN ' +
-    'WHETHER WILLING WITHOUT WITNESS'
-  ).split(' ')
+// Japanese translation for a word, or '' if unknown.
+WB.translate = function (word) {
+  var byLen = WB.DICT[word.length];
+  return (byLen && byLen[word]) || '';
 };
 </script>
 <script>
@@ -212,7 +157,9 @@ WB.Input = (function () {
     ArrowUp: 'up', KeyW: 'up',
     ArrowDown: 'down', KeyS: 'down',
     Space: 'bomb', KeyZ: 'bomb',
-    Enter: 'start'
+    Enter: 'start',
+    KeyP: 'pause', Escape: 'pause',
+    KeyR: 'restart'
   };
 
   function onKey(e, isDown) {
@@ -540,6 +487,7 @@ WB.Turret = function (x, y, letter) {
   this.alive = true;
   this.deadTimer = 0;   // wreck fade-out
   this.angle = Math.random() * Math.PI * 2;
+  this.fireTimer = 2.5 + Math.random() * 3; // seconds until first shot
 };
 
 WB.Turret.prototype.update = function (dt, scrollSpeed) {
@@ -608,13 +556,16 @@ WB.Turret.prototype.draw = function (ctx) {
 </script>
 <script>
 // Player ship: 4-way movement clamped on screen, with a bombing reticle ahead.
+// Takes damage from enemy fire; brief invulnerability + blink after a hit.
 window.WB = window.WB || {};
 
 WB.Player = (function () {
   var W = 480, H = 640;
   var SPEED = 260;
   var RETICLE_DIST = 130;
-  var x, y;
+  var RADIUS = 13;
+  var INVULN = 1.6; // seconds of invulnerability after being hit
+  var x, y, invuln;
 
   // Vertical range: mid-screen down to near the bottom, so the ship and
   // its reticle both stay on screen.
@@ -624,9 +575,19 @@ WB.Player = (function () {
   function reset() {
     x = W / 2;
     y = H - 90;
+    invuln = 0;
+  }
+
+  function hit() {
+    invuln = INVULN;
+  }
+
+  function isInvulnerable() {
+    return invuln > 0;
   }
 
   function update(dt) {
+    if (invuln > 0) invuln -= dt;
     var dx = 0, dy = 0;
     if (WB.Input.isDown('left')) dx -= 1;
     if (WB.Input.isDown('right')) dx += 1;
@@ -662,6 +623,9 @@ WB.Player = (function () {
     ctx.stroke();
     ctx.lineWidth = 1;
 
+    // blink while invulnerable (skip drawing on alternating frames)
+    if (invuln > 0 && Math.floor(time * 20) % 2 === 0) return;
+
     // ship body
     ctx.save();
     ctx.translate(x, y);
@@ -696,7 +660,10 @@ WB.Player = (function () {
     reset: reset,
     update: update,
     draw: draw,
+    hit: hit,
+    isInvulnerable: isInvulnerable,
     reticlePos: reticlePos,
+    getRadius: function () { return RADIUS; },
     getPos: function () { return { x: x, y: y }; }
   };
 })();
@@ -808,20 +775,95 @@ WB.Bombs = (function () {
 })();
 </script>
 <script>
-// HUD: score, lives, level, combo, the target word (with mushikui blanks)
-// and floating notice messages.
+// Enemy fire: slow shells lobbed by ground turrets toward the player.
+window.WB = window.WB || {};
+
+WB.EnemyFire = (function () {
+  var W = 480, H = 640;
+  var bullets = []; // {x, y, vx, vy}
+  var R = 5;
+
+  var MAX = 6; // global cap so many turrets can't create a bullet storm
+
+  function reset() {
+    bullets = [];
+  }
+
+  function atCapacity() {
+    return bullets.length >= MAX;
+  }
+
+  function bulletSpeed(level) {
+    return Math.min(150, 80 + level * 5);
+  }
+
+  // Fire from (sx, sy) aimed at the player's current position.
+  function spawn(sx, sy, tx, ty, level) {
+    var dx = tx - sx, dy = ty - sy;
+    var d = Math.sqrt(dx * dx + dy * dy) || 1;
+    var sp = bulletSpeed(level);
+    bullets.push({ x: sx, y: sy, vx: (dx / d) * sp, vy: (dy / d) * sp });
+  }
+
+  // onHit(x, y) is called when a bullet reaches the (vulnerable) player.
+  function update(dt, playerPos, playerRadius, invulnerable, onHit) {
+    for (var i = 0; i < bullets.length; i++) {
+      var b = bullets[i];
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      if (!invulnerable) {
+        var dx = b.x - playerPos.x, dy = b.y - playerPos.y;
+        var rr = R + playerRadius;
+        if (dx * dx + dy * dy <= rr * rr) {
+          b.dead = true;
+          onHit(b.x, b.y);
+        }
+      }
+    }
+    bullets = bullets.filter(function (b) {
+      return !b.dead && b.x > -20 && b.x < W + 20 && b.y > -20 && b.y < H + 20;
+    });
+  }
+
+  function draw(ctx) {
+    for (var i = 0; i < bullets.length; i++) {
+      var b = bullets[i];
+      ctx.fillStyle = '#ff8a3d';
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, R, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,230,120,0.9)';
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, R * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  return { reset: reset, spawn: spawn, update: update, draw: draw, atCapacity: atCapacity };
+})();
+</script>
+<script>
+// HUD: score, lives, level, combo, the target word (with mushikui blanks),
+// floating notices, and the "word complete" translation banner.
 window.WB = window.WB || {};
 
 WB.Hud = (function () {
-  var W = 480;
+  var W = 480, H = 640;
   var messages = []; // {text, color, life, max, y}
+  var banner = null; // {word, ja, life, max}
 
   function reset() {
     messages = [];
+    banner = null;
   }
 
   function flash(text, color) {
     messages.push({ text: text, color: color || '#fff', life: 0, max: 1.4, y: 300 });
+  }
+
+  // Celebration banner shown when a word is completed.
+  function wordComplete(word, ja) {
+    banner = { word: word, ja: ja, life: 0, max: 1.9 };
   }
 
   function update(dt) {
@@ -830,6 +872,89 @@ WB.Hud = (function () {
       messages[i].y -= dt * 30;
     }
     messages = messages.filter(function (m) { return m.life < m.max; });
+    if (banner) {
+      banner.life += dt;
+      if (banner.life >= banner.max) banner = null;
+    }
+  }
+
+  function drawWord(ctx) {
+    var disp = WB.WordGame.getDisplay();
+    var n = disp.length;
+    var bw = Math.min(34, (W - 40) / n - 6);
+    var totalW = n * (bw + 6) - 6;
+    var x0 = (W - totalW) / 2;
+    var y0 = 28;
+    ctx.font = 'bold ' + Math.floor(bw * 0.7) + 'px Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (var i = 0; i < n; i++) {
+      var d = disp[i];
+      var bx = x0 + i * (bw + 6);
+      if (d.done) {
+        ctx.fillStyle = 'rgba(70,180,90,0.9)';
+      } else if (d.current) {
+        ctx.fillStyle = 'rgba(255,209,102,0.9)';
+      } else {
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      }
+      ctx.fillRect(bx, y0, bw, bw * 0.95);
+      if (d.current) {
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(bx, y0, bw, bw * 0.95);
+        ctx.lineWidth = 1;
+      }
+      ctx.fillStyle = d.done ? '#fff' : (d.current ? '#20232a' : '#e8ecf0');
+      var ch = d.char;
+      if (d.hidden && !d.done) ch = '?';
+      ctx.fillText(ch, bx + bw / 2, y0 + bw * 0.5);
+    }
+  }
+
+  function drawBanner(ctx) {
+    if (!banner) return;
+    var t = banner.life / banner.max;
+    // scale-in over first 12%, hold, fade out over last 25%
+    var scale = t < 0.12 ? (0.6 + 0.4 * (t / 0.12)) : 1;
+    var alpha = t > 0.75 ? Math.max(0, 1 - (t - 0.75) / 0.25) : 1;
+    var cx = W / 2, cy = 250;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    // expanding glow ring
+    var ringR = 40 + t * 120;
+    ctx.strokeStyle = 'rgba(124,242,124,' + (alpha * (1 - t)) + ')';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+
+    // panel
+    ctx.fillStyle = 'rgba(10,20,14,0.82)';
+    ctx.strokeStyle = 'rgba(124,242,124,0.9)';
+    ctx.lineWidth = 2;
+    var pw = 300, ph = banner.ja ? 96 : 64;
+    ctx.fillRect(-pw / 2, -ph / 2, pw, ph);
+    ctx.strokeRect(-pw / 2, -ph / 2, pw, ph);
+    ctx.lineWidth = 1;
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#7cf27c';
+    ctx.font = 'bold 34px Consolas, monospace';
+    ctx.fillText(banner.word, 0, banner.ja ? -20 : -2);
+    if (banner.ja) {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 26px "Yu Gothic", "Meiryo", sans-serif';
+      ctx.fillText(banner.ja, 0, 22);
+    }
+    ctx.restore();
   }
 
   function draw(ctx, g) {
@@ -855,7 +980,7 @@ WB.Hud = (function () {
     // lives as small ships
     ctx.textAlign = 'right';
     for (var l = 0; l < g.lives; l++) {
-      var lx = W - 14 - l * 20, ly = 66;
+      var lx = W - 14 - l * 18, ly = 66;
       ctx.fillStyle = '#d8dee6';
       ctx.beginPath();
       ctx.moveTo(lx, ly - 7);
@@ -866,42 +991,14 @@ WB.Hud = (function () {
       ctx.fill();
     }
 
-    // target word boxes
-    var disp = WB.WordGame.getDisplay();
-    var n = disp.length;
-    var bw = Math.min(34, (W - 40) / n - 6);
-    var totalW = n * (bw + 6) - 6;
-    var x0 = (W - totalW) / 2;
-    var y0 = 28;
-    ctx.font = 'bold ' + Math.floor(bw * 0.7) + 'px Consolas, monospace';
-    ctx.textAlign = 'center';
-    for (var i = 0; i < n; i++) {
-      var d = disp[i];
-      var bx = x0 + i * (bw + 6);
-      if (d.done) {
-        ctx.fillStyle = 'rgba(70,180,90,0.9)';
-      } else if (d.current) {
-        ctx.fillStyle = 'rgba(255,209,102,0.9)';
-      } else {
-        ctx.fillStyle = 'rgba(255,255,255,0.15)';
-      }
-      ctx.fillRect(bx, y0, bw, bw * 0.95);
-      if (d.current) {
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(bx, y0, bw, bw * 0.95);
-        ctx.lineWidth = 1;
-      }
-      ctx.fillStyle = d.done ? '#fff' : (d.current ? '#20232a' : '#e8ecf0');
-      var ch = d.char;
-      if (d.hidden && !d.done) ch = '?';
-      ctx.fillText(ch, bx + bw / 2, y0 + bw * 0.5);
-    }
+    drawWord(ctx);
+    drawBanner(ctx);
 
     // floating messages
     ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.font = 'bold 24px Consolas, monospace';
-    for (i = 0; i < messages.length; i++) {
+    for (var i = 0; i < messages.length; i++) {
       var m = messages[i];
       ctx.globalAlpha = Math.max(0, 1 - m.life / m.max);
       ctx.fillStyle = m.color;
@@ -910,7 +1007,13 @@ WB.Hud = (function () {
     ctx.globalAlpha = 1;
   }
 
-  return { reset: reset, flash: flash, update: update, draw: draw };
+  return {
+    reset: reset,
+    flash: flash,
+    wordComplete: wordComplete,
+    update: update,
+    draw: draw
+  };
 })();
 </script>
 <script>
@@ -920,10 +1023,11 @@ window.WB = window.WB || {};
 WB.Game = (function () {
   var W = 480, H = 640;
   var WORDS_PER_LEVEL = 3;
+  var START_LIVES = 5;
   var HISCORE_KEY = 'wordbomber.hiscore';
 
-  var state = 'title';
-  var score = 0, hiscore = 0, lives = 3, level = 1;
+  var state = 'title'; // title | playing | paused | gameover
+  var score = 0, hiscore = 0, lives = START_LIVES, level = 1;
   var wordsCompleted = 0;
   var combo = 0; // consecutive words completed without a miss
   var stateTimer = 0;
@@ -945,13 +1049,25 @@ WB.Game = (function () {
     return Math.min(150, 55 + level * 8);
   }
 
+  function fireCooldown() {
+    // "Slow" turret fire; a little quicker at higher levels.
+    return Math.max(2.6, 4.6 - level * 0.15) + Math.random() * 3;
+  }
+
+  function endGame() {
+    state = 'gameover';
+    stateTimer = 0;
+    if (score > hiscore) { hiscore = score; saveHiscore(); }
+  }
+
   function startGame() {
     state = 'playing';
-    score = 0; lives = 3; level = 1;
+    score = 0; lives = START_LIVES; level = 1;
     wordsCompleted = 0; combo = 0;
     WB.Background.reset();
     WB.Player.reset();
     WB.Bombs.reset();
+    WB.EnemyFire.reset();
     WB.WordGame.newWord(level);
     WB.Spawner.reset();
     WB.Hud.reset();
@@ -964,11 +1080,7 @@ WB.Game = (function () {
       combo = 0;
       WB.WordGame.resetProgress();
       WB.Hud.flash('MISS!', '#ff5a5a');
-      if (lives <= 0) {
-        state = 'gameover';
-        stateTimer = 0;
-        if (score > hiscore) { hiscore = score; saveHiscore(); }
-      }
+      if (lives <= 0) endGame();
       return;
     }
 
@@ -981,7 +1093,12 @@ WB.Game = (function () {
       score += bonus;
       combo++;
       wordsCompleted++;
-      WB.Hud.flash(res.word + '  +' + bonus, '#7cf27c');
+      // Completion celebration: translation banner + a few bursts.
+      WB.Hud.wordComplete(res.word, WB.translate(res.word));
+      WB.Bombs.explodeAt(W / 2, 250);
+      WB.Bombs.explodeAt(W / 2 - 90, 250);
+      WB.Bombs.explodeAt(W / 2 + 90, 250);
+      WB.Hud.flash('+' + bonus, '#7cf27c');
       var newLevel = 1 + Math.floor(wordsCompleted / WORDS_PER_LEVEL);
       if (newLevel > level) {
         level = newLevel;
@@ -1007,11 +1124,41 @@ WB.Game = (function () {
     }
   }
 
+  function onPlayerHit(hx, hy) {
+    if (WB.Player.isInvulnerable()) return;
+    lives--;
+    WB.Player.hit();
+    WB.Bombs.explodeAt(hx, hy);
+    var p = WB.Player.getPos();
+    WB.Bombs.explodeAt(p.x, p.y);
+    WB.Hud.flash('-1 SHIP', '#ff5a5a');
+    if (lives <= 0) endGame();
+  }
+
+  function fireTurrets(dt) {
+    var turrets = WB.Spawner.getTurrets();
+    var pp = WB.Player.getPos();
+    for (var i = 0; i < turrets.length; i++) {
+      var t = turrets[i];
+      if (!t.alive || t.y < 88 || t.y > H - 20) continue;
+      t.fireTimer -= dt;
+      if (t.fireTimer <= 0) {
+        if (!WB.EnemyFire.atCapacity()) WB.EnemyFire.spawn(t.x, t.y, pp.x, pp.y, level);
+        t.fireTimer = fireCooldown();
+      }
+    }
+  }
+
   function update(dt) {
     stateTimer += dt;
     if (state === 'title') {
       WB.Background.update(dt, 40);
       if (WB.Input.wasPressed('bomb') || WB.Input.wasPressed('start')) startGame();
+      return;
+    }
+    if (state === 'paused') {
+      if (WB.Input.wasPressed('pause')) state = 'playing';
+      else if (WB.Input.wasPressed('restart')) startGame();
       return;
     }
     if (state === 'gameover') {
@@ -1024,11 +1171,15 @@ WB.Game = (function () {
     }
 
     // playing
+    if (WB.Input.wasPressed('pause')) { state = 'paused'; stateTimer = 0; return; }
     WB.Background.update(dt, scrollSpeed());
     WB.Player.update(dt);
     if (WB.Input.wasPressed('bomb')) WB.Bombs.tryDrop();
     WB.Spawner.update(dt, level, scrollSpeed());
+    fireTurrets(dt);
     WB.Bombs.update(dt, onImpact);
+    WB.EnemyFire.update(dt, WB.Player.getPos(), WB.Player.getRadius(),
+      WB.Player.isInvulnerable(), onPlayerHit);
     WB.Hud.update(dt);
   }
 
@@ -1044,25 +1195,42 @@ WB.Game = (function () {
   }
 
   function draw(ctx, time) {
+    // Pause screen: hide the field entirely to prevent studying the letters.
+    if (state === 'paused') {
+      ctx.fillStyle = '#0a0a12';
+      ctx.fillRect(0, 0, W, H);
+      drawCenterText(ctx, [
+        { text: 'PAUSED', font: 'bold 46px Consolas, monospace', color: '#9fe8ff', y: 240 },
+        { text: 'カンニング防止のため画面を隠しています', font: '15px sans-serif', color: '#c0c8d0', y: 300 },
+        { text: 'SCORE ' + score + '   LV ' + level, font: '18px Consolas, monospace', color: '#ffd166', y: 344 },
+        { text: 'P / ESC : 再開', font: 'bold 18px sans-serif', color: '#fff', y: 410 },
+        { text: 'R : リスタート', font: 'bold 18px sans-serif', color: '#fff', y: 442 }
+      ]);
+      return;
+    }
+
     WB.Background.draw(ctx);
 
     if (state === 'title') {
       ctx.fillStyle = 'rgba(0,0,0,0.55)';
       ctx.fillRect(0, 0, W, H);
       drawCenterText(ctx, [
-        { text: 'WORD BOMBER', font: 'bold 46px Consolas, monospace', color: '#ffd166', y: 180 },
-        { text: '- 英単語爆撃作戦 -', font: '18px sans-serif', color: '#9fe8ff', y: 225 },
-        { text: 'お題の英単語の順番どおりに', font: '16px sans-serif', color: '#e8ecf0', y: 300 },
-        { text: '文字砲台を爆撃せよ!', font: '16px sans-serif', color: '#e8ecf0', y: 326 },
-        { text: '順番を間違えるとミス。虫食い(?)は推理しよう', font: '14px sans-serif', color: '#c0c8d0', y: 360 },
-        { text: '移動: ←→↑↓ / WASD    爆撃: SPACE / Z', font: '15px sans-serif', color: '#9fe8ff', y: 420 },
-        { text: (Math.floor(time * 2) % 2 === 0) ? 'PRESS SPACE' : '', font: 'bold 24px Consolas, monospace', color: '#fff', y: 500 },
-        { text: 'HI-SCORE ' + hiscore, font: '16px Consolas, monospace', color: '#ffd166', y: 560 }
+        { text: 'WORD BOMBER', font: 'bold 46px Consolas, monospace', color: '#ffd166', y: 150 },
+        { text: '- 英単語爆撃作戦 -', font: '18px sans-serif', color: '#9fe8ff', y: 192 },
+        { text: 'お題の英単語の順番どおりに', font: '16px sans-serif', color: '#e8ecf0', y: 258 },
+        { text: '文字砲台を爆撃せよ!', font: '16px sans-serif', color: '#e8ecf0', y: 282 },
+        { text: '順番を間違えるとミス。虫食い(?)は推理しよう', font: '14px sans-serif', color: '#c0c8d0', y: 314 },
+        { text: '砲台の反撃に当たると機体を1機失う(初期5機)', font: '14px sans-serif', color: '#ffb3b3', y: 340 },
+        { text: '移動: ←→↑↓ / WASD    爆撃: SPACE / Z', font: '15px sans-serif', color: '#9fe8ff', y: 398 },
+        { text: 'ポーズ: P / ESC', font: '15px sans-serif', color: '#9fe8ff', y: 424 },
+        { text: (Math.floor(time * 2) % 2 === 0) ? 'PRESS SPACE' : '', font: 'bold 24px Consolas, monospace', color: '#fff', y: 486 },
+        { text: 'HI-SCORE ' + hiscore, font: '16px Consolas, monospace', color: '#ffd166', y: 548 }
       ]);
       return;
     }
 
     WB.Spawner.draw(ctx);
+    WB.EnemyFire.draw(ctx);
     WB.Bombs.draw(ctx);
     WB.Player.draw(ctx, time);
     WB.Hud.draw(ctx, {

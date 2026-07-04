@@ -11,7 +11,9 @@ WB.Input = (function () {
     ArrowUp: 'up', KeyW: 'up',
     ArrowDown: 'down', KeyS: 'down',
     Space: 'bomb', KeyZ: 'bomb',
-    Enter: 'start'
+    Enter: 'start',
+    KeyP: 'pause', Escape: 'pause',
+    KeyR: 'restart'
   };
 
   function onKey(e, isDown) {
