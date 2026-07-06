@@ -66,7 +66,7 @@ index.html        エントリポイント(script を依存順に読み込み)
 css/style.css     ページスタイル
 js/words-data.js  辞書(3〜7文字の英単語 + 日本語訳)
 js/input.js       キー入力
-js/background.js  スクロール地形
+js/background.js  バイオーム地形(森・平地・砂漠・海をランダム連結)
 js/word.js        お題単語・虫食い・候補集合判定
 js/spawner.js     砲台スポーン(必要文字の保証供給)
 js/turret.js      砲台エンティティ(反撃タイマー付き)

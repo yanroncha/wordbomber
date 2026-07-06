@@ -190,7 +190,7 @@ WB.Game = (function () {
       return;
     }
 
-    WB.Background.draw(ctx);
+    WB.Background.draw(ctx, time);
 
     if (state === 'title') {
       ctx.fillStyle = 'rgba(0,0,0,0.55)';
