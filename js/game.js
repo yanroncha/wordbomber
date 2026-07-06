@@ -76,6 +76,7 @@ WB.Game = (function () {
       wordsCompleted++;
       // Completion celebration: translation banner + a few bursts.
       WB.Hud.wordComplete(res.word, WB.translate(res.word));
+      WB.Background.changeBiome(); // next terrain scrolls in with the next word
       WB.Bombs.explodeAt(W / 2, 250);
       WB.Bombs.explodeAt(W / 2 - 90, 250);
       WB.Bombs.explodeAt(W / 2 + 90, 250);

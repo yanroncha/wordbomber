@@ -1,5 +1,6 @@
-// Scrolling terrain built from biome zones (forest / plains / desert / sea)
-// chained in random order, each with detailed hand-drawn decor.
+// Scrolling terrain built from biome zones (forest / plains / desert / sea),
+// each with detailed hand-drawn decor. The biome stays constant while a word
+// is in progress; completing a word scrolls in the next (different) biome.
 window.WB = window.WB || {};
 
 WB.Background = (function () {
@@ -12,6 +13,7 @@ WB.Background = (function () {
     sea: '#1d4e6e'
   };
   var zones = []; // topmost first: {top, h, biome, decors[]}
+  var currentBiome = BIOMES[0];
 
   function rand(a, b) { return a + Math.random() * (b - a); }
 
@@ -96,13 +98,27 @@ WB.Background = (function () {
 
   function reset() {
     zones = [];
+    currentBiome = BIOMES[Math.floor(Math.random() * BIOMES.length)];
     var y = -900;
-    var biome = BIOMES[Math.floor(Math.random() * BIOMES.length)];
     while (y < H + 100) {
       var h = rand(380, 720);
-      zones.push(makeZone(y, h, biome));
+      zones.push(makeZone(y, h, currentBiome));
       y += h;
-      biome = pickBiome(biome);
+    }
+  }
+
+  // Called when a word is completed: the next biome scrolls in from the top.
+  function changeBiome() {
+    currentBiome = pickBiome(currentBiome);
+    var z = zones[0];
+    if (z && z.top < -40) {
+      // shrink the topmost (old-biome) zone from its top edge so the new
+      // biome starts just above the screen instead of much later
+      var shift = -40 - z.top;
+      z.top = -40;
+      z.h -= shift;
+      for (var i = 0; i < z.decors.length; i++) z.decors[i].ry -= shift;
+      z.decors = z.decors.filter(function (d) { return (d.ry || 0) >= 0; });
     }
   }
 
@@ -112,9 +128,8 @@ WB.Background = (function () {
     zones = zones.filter(function (z) { return z.top < H + 10; });
     while (zones.length === 0 || zones[0].top > -80) {
       var h = rand(380, 720);
-      var prevBiome = zones.length ? zones[0].biome : null;
       var newTop = zones.length ? zones[0].top - h : -80 - h;
-      zones.unshift(makeZone(newTop, h, pickBiome(prevBiome)));
+      zones.unshift(makeZone(newTop, h, currentBiome));
     }
   }
 
@@ -302,5 +317,5 @@ WB.Background = (function () {
     }
   }
 
-  return { reset: reset, update: update, draw: draw };
+  return { reset: reset, update: update, draw: draw, changeBiome: changeBiome };
 })();
