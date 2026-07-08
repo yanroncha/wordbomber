@@ -28,6 +28,11 @@ WB.Player = (function () {
     invuln = INVULN;
   }
 
+  // Blink (and stay untouchable) for the duration of a level-up warp.
+  function startWarp(duration) {
+    invuln = Math.max(invuln, duration);
+  }
+
   function isInvulnerable() {
     return invuln > 0;
   }
@@ -185,6 +190,7 @@ WB.Player = (function () {
     update: update,
     draw: draw,
     hit: hit,
+    startWarp: startWarp,
     isInvulnerable: isInvulnerable,
     reticlePos: reticlePos,
     getRadius: function () { return RADIUS; },

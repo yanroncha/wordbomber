@@ -115,6 +115,34 @@ WB.Audio = (function () {
     }
   }
 
+  function sfxWarp() {
+    if (!started || !ctx) return;
+    var t = ctx.currentTime;
+    // main rising sweep (~2s, matching the warp scroll)
+    var osc = ctx.createOscillator();
+    var g = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(120, t);
+    osc.frequency.exponentialRampToValueAtTime(1400, t + 1.6);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.28, t + 0.08);
+    g.gain.setValueAtTime(0.28, t + 1.4);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 2.0);
+    osc.connect(g); g.connect(master);
+    osc.start(t); osc.stop(t + 2.05);
+    // shimmering upper layer
+    var o2 = ctx.createOscillator();
+    var g2 = ctx.createGain();
+    o2.type = 'square';
+    o2.frequency.setValueAtTime(240, t);
+    o2.frequency.exponentialRampToValueAtTime(2800, t + 1.6);
+    g2.gain.setValueAtTime(0.0001, t);
+    g2.gain.exponentialRampToValueAtTime(0.1, t + 0.12);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + 1.9);
+    o2.connect(g2); g2.connect(master);
+    o2.start(t); o2.stop(t + 1.95);
+  }
+
   // ---- looping BGM ----------------------------------------------------
 
   function update(dt) {
@@ -144,6 +172,7 @@ WB.Audio = (function () {
     sfxDestroy: sfxDestroy,
     sfxHit: sfxHit,
     sfxFanfare: sfxFanfare,
+    sfxWarp: sfxWarp,
     setEnabled: setEnabled,
     toggleMute: toggleMute,
     isEnabled: function () { return enabled; }

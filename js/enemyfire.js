@@ -6,7 +6,7 @@ WB.EnemyFire = (function () {
   var bullets = []; // {x, y, vx, vy}
   var R = 5;
 
-  var MAX = 6; // global cap so many turrets can't create a bullet storm
+  var MAX = 5; // global cap so many turrets can't create a bullet storm
 
   function reset() {
     bullets = [];

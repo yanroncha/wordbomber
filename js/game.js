@@ -4,7 +4,9 @@ window.WB = window.WB || {};
 WB.Game = (function () {
   var W = 480, H = 640;
   var WORDS_PER_LEVEL = 3;
-  var START_LIVES = 5;
+  var START_LIVES = 8;
+  var WARP_TIME = 2.0;   // seconds of fast-forward scroll on level up
+  var WARP_SPEED = 5;    // scroll multiplier while warping
   var HISCORE_KEY = 'wordbomber.hiscore';
 
   var state = 'title'; // title | playing | paused | gameover
@@ -12,6 +14,7 @@ WB.Game = (function () {
   var wordsCompleted = 0;
   var combo = 0; // consecutive words completed without a miss
   var stateTimer = 0;
+  var warpTimer = 0;
 
   function loadHiscore() {
     try { hiscore = parseInt(localStorage.getItem(HISCORE_KEY), 10) || 0; }
@@ -27,7 +30,8 @@ WB.Game = (function () {
   }
 
   function scrollSpeed() {
-    return Math.min(150, 55 + level * 8);
+    var base = Math.min(150, 55 + level * 8);
+    return warpTimer > 0 ? base * WARP_SPEED : base;
   }
 
   function fireCooldown() {
@@ -45,6 +49,7 @@ WB.Game = (function () {
     state = 'playing';
     score = 0; lives = START_LIVES; level = 1;
     wordsCompleted = 0; combo = 0;
+    warpTimer = 0;
     WB.Background.reset();
     WB.Player.reset();
     WB.Bombs.reset();
@@ -86,7 +91,11 @@ WB.Game = (function () {
       var newLevel = 1 + Math.floor(wordsCompleted / WORDS_PER_LEVEL);
       if (newLevel > level) {
         level = newLevel;
-        WB.Hud.flash('LEVEL ' + level + '!', '#ff9de2');
+        // warp to the next area: fast-forward scroll, blinking ship, SFX
+        warpTimer = WARP_TIME;
+        WB.Player.startWarp(WARP_TIME);
+        WB.Audio.sfxWarp();
+        WB.Hud.flash('LEVEL ' + level + '!  WARP!', '#ff9de2');
       }
       WB.WordGame.newWord(level);
     }
@@ -163,11 +172,12 @@ WB.Game = (function () {
 
     // playing
     if (WB.Input.wasPressed('pause')) { state = 'paused'; stateTimer = 0; return; }
+    if (warpTimer > 0) warpTimer = Math.max(0, warpTimer - dt);
     WB.Background.update(dt, scrollSpeed());
     WB.Player.update(dt);
     if (WB.Input.wasPressed('bomb')) WB.Bombs.tryDrop();
     WB.Spawner.update(dt, level, scrollSpeed());
-    fireTurrets(dt);
+    if (warpTimer <= 0) fireTurrets(dt); // turrets hold fire during warp
     WB.Bombs.update(dt, onImpact);
     WB.EnemyFire.update(dt, WB.Player.getPos(), WB.Player.getRadius(),
       WB.Player.isInvulnerable(), onPlayerHit);
@@ -221,7 +231,7 @@ WB.Game = (function () {
         { text: 'お題の英単語の順番どおりに', font: '16px sans-serif', color: '#e8ecf0', y: 258 },
         { text: '文字砲台を爆撃せよ!', font: '16px sans-serif', color: '#e8ecf0', y: 282 },
         { text: '順番を間違えるとミス。虫食い(?)は推理しよう', font: '14px sans-serif', color: '#c0c8d0', y: 314 },
-        { text: '砲台の反撃に当たると機体を1機失う(初期5機)', font: '14px sans-serif', color: '#ffb3b3', y: 340 },
+        { text: '砲台の反撃に当たると機体を1機失う(初期8機)', font: '14px sans-serif', color: '#ffb3b3', y: 340 },
         { text: '移動: ←→↑↓ / WASD    爆撃: SPACE / Z', font: '15px sans-serif', color: '#9fe8ff', y: 398 },
         { text: 'ポーズ: P / ESC    ミュート: M', font: '15px sans-serif', color: '#9fe8ff', y: 424 },
         { text: (Math.floor(time * 2) % 2 === 0) ? 'PRESS SPACE' : '', font: 'bold 24px Consolas, monospace', color: '#fff', y: 486 },
@@ -234,6 +244,23 @@ WB.Game = (function () {
     WB.Spawner.draw(ctx);
     WB.EnemyFire.draw(ctx);
     WB.Bombs.draw(ctx);
+
+    // warp streaks: vertical speed lines while fast-forwarding
+    if (state === 'playing' && warpTimer > 0) {
+      var wa = Math.min(1, warpTimer / 0.4) * Math.min(1, (WARP_TIME - warpTimer) / 0.3 + 0.2);
+      ctx.strokeStyle = 'rgba(255,255,255,' + (0.28 * wa).toFixed(3) + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (var s = 0; s < 14; s++) {
+        var lx = Math.random() * W;
+        var ly = Math.random() * H;
+        ctx.moveTo(lx, ly);
+        ctx.lineTo(lx, ly + 50 + Math.random() * 110);
+      }
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+
     WB.Player.draw(ctx, time);
     WB.Hud.draw(ctx, {
       score: score, hiscore: hiscore, lives: lives, level: level,
