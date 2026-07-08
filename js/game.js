@@ -76,6 +76,7 @@ WB.Game = (function () {
       wordsCompleted++;
       // Completion celebration: translation banner + a few bursts.
       WB.Hud.wordComplete(res.word, WB.translate(res.word));
+      WB.EnemyFire.clear(); // clear every shell in flight on completion
       WB.Background.changeBiome(); // next terrain scrolls in with the next word
       WB.Bombs.explodeAt(W / 2, 250);
       WB.Bombs.explodeAt(W / 2 - 90, 250);
@@ -96,6 +97,7 @@ WB.Game = (function () {
       var t = turrets[i];
       if (!t.hitBy(x, y, blastR)) continue;
       t.alive = false;
+      WB.Audio.sfxDestroy(); // turret destroyed
       if (t.letter) {
         onLetterBombed(t.letter);
         if (state !== 'playing') return;
@@ -109,6 +111,7 @@ WB.Game = (function () {
   function onPlayerHit(hx, hy) {
     if (WB.Player.isInvulnerable()) return;
     lives--;
+    WB.Audio.sfxHit(); // shell hit the ship
     WB.Player.hit();
     WB.Bombs.explodeAt(hx, hy);
     var p = WB.Player.getPos();
@@ -133,6 +136,7 @@ WB.Game = (function () {
 
   function update(dt) {
     stateTimer += dt;
+    WB.Audio.update(dt); // looping BGM (silent until first key gesture)
     if (state === 'title') {
       WB.Background.update(dt, 40);
       if (WB.Input.wasPressed('bomb') || WB.Input.wasPressed('start')) startGame();

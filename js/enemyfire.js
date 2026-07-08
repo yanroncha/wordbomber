@@ -16,6 +16,11 @@ WB.EnemyFire = (function () {
     return bullets.length >= MAX;
   }
 
+  // Wipe every shell currently in flight (used on word completion).
+  function clear() {
+    bullets = [];
+  }
+
   function bulletSpeed(level) {
     return Math.min(150, 80 + level * 5);
   }
@@ -62,5 +67,5 @@ WB.EnemyFire = (function () {
     }
   }
 
-  return { reset: reset, spawn: spawn, update: update, draw: draw, atCapacity: atCapacity };
+  return { reset: reset, spawn: spawn, update: update, draw: draw, atCapacity: atCapacity, clear: clear };
 })();

@@ -20,6 +20,8 @@ WB.Input = (function () {
     var name = ALIASES[e.code];
     if (!name) return;
     e.preventDefault();
+    // Kick the audio context alive from within the user gesture.
+    if (isDown && WB.Audio) WB.Audio.start();
     if (isDown && !down[name]) pressed[name] = true;
     down[name] = isDown;
   }
