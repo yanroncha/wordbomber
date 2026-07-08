@@ -76,6 +76,7 @@ WB.Game = (function () {
       wordsCompleted++;
       // Completion celebration: translation banner + a few bursts.
       WB.Hud.wordComplete(res.word, WB.translate(res.word));
+      WB.Audio.sfxFanfare(); // short victory fanfare
       WB.EnemyFire.clear(); // clear every shell in flight on completion
       WB.Background.changeBiome(); // next terrain scrolls in with the next word
       WB.Bombs.explodeAt(W / 2, 250);
@@ -136,6 +137,10 @@ WB.Game = (function () {
 
   function update(dt) {
     stateTimer += dt;
+    if (WB.Input.wasPressed('mute')) {
+      var muted = WB.Audio.toggleMute();
+      WB.Hud.flash(muted ? 'MUTE' : 'SOUND ON', '#9fe8ff');
+    }
     WB.Audio.update(dt); // looping BGM (silent until first key gesture)
     if (state === 'title') {
       WB.Background.update(dt, 40);
@@ -169,6 +174,15 @@ WB.Game = (function () {
     WB.Hud.update(dt);
   }
 
+  function drawMuteIndicator(ctx) {
+    if (WB.Audio.isEnabled()) return;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.font = 'bold 13px Consolas, monospace';
+    ctx.fillStyle = '#ff9de2';
+    ctx.fillText('🔇 MUTED (M)', 10, H - 8);
+  }
+
   function drawCenterText(ctx, lines) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -192,6 +206,7 @@ WB.Game = (function () {
         { text: 'P / ESC : 再開', font: 'bold 18px sans-serif', color: '#fff', y: 410 },
         { text: 'R : リスタート', font: 'bold 18px sans-serif', color: '#fff', y: 442 }
       ]);
+      drawMuteIndicator(ctx);
       return;
     }
 
@@ -208,10 +223,11 @@ WB.Game = (function () {
         { text: '順番を間違えるとミス。虫食い(?)は推理しよう', font: '14px sans-serif', color: '#c0c8d0', y: 314 },
         { text: '砲台の反撃に当たると機体を1機失う(初期5機)', font: '14px sans-serif', color: '#ffb3b3', y: 340 },
         { text: '移動: ←→↑↓ / WASD    爆撃: SPACE / Z', font: '15px sans-serif', color: '#9fe8ff', y: 398 },
-        { text: 'ポーズ: P / ESC', font: '15px sans-serif', color: '#9fe8ff', y: 424 },
+        { text: 'ポーズ: P / ESC    ミュート: M', font: '15px sans-serif', color: '#9fe8ff', y: 424 },
         { text: (Math.floor(time * 2) % 2 === 0) ? 'PRESS SPACE' : '', font: 'bold 24px Consolas, monospace', color: '#fff', y: 486 },
         { text: 'HI-SCORE ' + hiscore, font: '16px Consolas, monospace', color: '#ffd166', y: 548 }
       ]);
+      drawMuteIndicator(ctx);
       return;
     }
 
@@ -234,6 +250,8 @@ WB.Game = (function () {
         { text: 'PRESS SPACE TO RETRY', font: 'bold 18px Consolas, monospace', color: '#fff', y: 440 }
       ]);
     }
+
+    drawMuteIndicator(ctx);
   }
 
   return { update: update, draw: draw, loadHiscore: loadHiscore };

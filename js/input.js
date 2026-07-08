@@ -13,7 +13,8 @@ WB.Input = (function () {
     Space: 'bomb', KeyZ: 'bomb',
     Enter: 'start',
     KeyP: 'pause', Escape: 'pause',
-    KeyR: 'restart'
+    KeyR: 'restart',
+    KeyM: 'mute'
   };
 
   function onKey(e, isDown) {

@@ -93,6 +93,28 @@ WB.Audio = (function () {
     noise(0.14, 0.4, 500);
   }
 
+  function sfxFanfare() {
+    if (!started || !ctx) return;
+    // short rising fanfare on word completion: C-E-G-C arpeggio
+    var notes = [523, 659, 784, 1046];
+    var step = 0.09;
+    for (var i = 0; i < notes.length; i++) {
+      var osc = ctx.createOscillator();
+      var g = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = notes[i];
+      var t = ctx.currentTime + i * step;
+      var dur = (i === notes.length - 1) ? 0.32 : 0.12;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.4, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(g);
+      g.connect(master);
+      osc.start(t);
+      osc.stop(t + dur + 0.02);
+    }
+  }
+
   // ---- looping BGM ----------------------------------------------------
 
   function update(dt) {
@@ -111,12 +133,19 @@ WB.Audio = (function () {
     if (master) master.gain.value = v ? 0.5 : 0;
   }
 
+  function toggleMute() {
+    setEnabled(!enabled);
+    return !enabled; // true when now muted
+  }
+
   return {
     start: start,
     update: update,
     sfxDestroy: sfxDestroy,
     sfxHit: sfxHit,
+    sfxFanfare: sfxFanfare,
     setEnabled: setEnabled,
+    toggleMute: toggleMute,
     isEnabled: function () { return enabled; }
   };
 })();
