@@ -146,6 +146,7 @@ WB.Game = (function () {
 
   function update(dt) {
     stateTimer += dt;
+    WB.Touch.update(dt);
     if (WB.Input.wasPressed('mute')) {
       var muted = WB.Audio.toggleMute();
       WB.Hud.flash(muted ? 'MUTE' : 'SOUND ON', '#9fe8ff');
@@ -205,18 +206,24 @@ WB.Game = (function () {
   }
 
   function draw(ctx, time) {
+    var touchUi = WB.Touch.isActive();
+
     // Pause screen: hide the field entirely to prevent studying the letters.
     if (state === 'paused') {
       ctx.fillStyle = '#0a0a12';
       ctx.fillRect(0, 0, W, H);
-      drawCenterText(ctx, [
+      var pauseLines = [
         { text: 'PAUSED', font: 'bold 46px Consolas, monospace', color: '#9fe8ff', y: 240 },
         { text: 'カンニング防止のため画面を隠しています', font: '15px sans-serif', color: '#c0c8d0', y: 300 },
-        { text: 'SCORE ' + score + '   LV ' + level, font: '18px Consolas, monospace', color: '#ffd166', y: 344 },
-        { text: 'P / ESC : 再開', font: 'bold 18px sans-serif', color: '#fff', y: 410 },
-        { text: 'R : リスタート', font: 'bold 18px sans-serif', color: '#fff', y: 442 }
-      ]);
+        { text: 'SCORE ' + score + '   LV ' + level, font: '18px Consolas, monospace', color: '#ffd166', y: 344 }
+      ];
+      if (!touchUi) {
+        pauseLines.push({ text: 'P / ESC : 再開', font: 'bold 18px sans-serif', color: '#fff', y: 410 });
+        pauseLines.push({ text: 'R : リスタート', font: 'bold 18px sans-serif', color: '#fff', y: 442 });
+      }
+      drawCenterText(ctx, pauseLines);
       drawMuteIndicator(ctx);
+      WB.Touch.draw(ctx); // resume / restart tap buttons
       return;
     }
 
@@ -232,12 +239,13 @@ WB.Game = (function () {
         { text: '文字砲台を爆撃せよ!', font: '16px sans-serif', color: '#e8ecf0', y: 282 },
         { text: '順番を間違えるとミス。虫食い(?)は推理しよう', font: '14px sans-serif', color: '#c0c8d0', y: 314 },
         { text: '砲台の反撃に当たると機体を1機失う(初期8機)', font: '14px sans-serif', color: '#ffb3b3', y: 340 },
-        { text: '移動: ←→↑↓ / WASD    爆撃: SPACE / Z', font: '15px sans-serif', color: '#9fe8ff', y: 398 },
-        { text: 'ポーズ: P / ESC    ミュート: M', font: '15px sans-serif', color: '#9fe8ff', y: 424 },
-        { text: (Math.floor(time * 2) % 2 === 0) ? 'PRESS SPACE' : '', font: 'bold 24px Consolas, monospace', color: '#fff', y: 486 },
+        { text: touchUi ? 'ドラッグ: 移動    💣ボタン / 2本目の指: 爆撃' : '移動: ←→↑↓ / WASD    爆撃: SPACE / Z', font: '15px sans-serif', color: '#9fe8ff', y: 398 },
+        { text: touchUi ? 'ポーズ: ⏸    ミュート: スピーカーアイコン' : 'ポーズ: P / ESC    ミュート: M', font: '15px sans-serif', color: '#9fe8ff', y: 424 },
+        { text: (Math.floor(time * 2) % 2 === 0) ? (touchUi ? 'TAP TO START' : 'PRESS SPACE') : '', font: 'bold 24px Consolas, monospace', color: '#fff', y: 486 },
         { text: 'HI-SCORE ' + hiscore, font: '16px Consolas, monospace', color: '#ffd166', y: 548 }
       ]);
       drawMuteIndicator(ctx);
+      WB.Touch.draw(ctx);
       return;
     }
 
@@ -274,12 +282,16 @@ WB.Game = (function () {
         { text: 'GAME OVER', font: 'bold 44px Consolas, monospace', color: '#ff5a5a', y: 240 },
         { text: 'SCORE ' + score, font: 'bold 24px Consolas, monospace', color: '#9fe8ff', y: 320 },
         { text: 'HI-SCORE ' + hiscore, font: '18px Consolas, monospace', color: '#ffd166', y: 358 },
-        { text: 'PRESS SPACE TO RETRY', font: 'bold 18px Consolas, monospace', color: '#fff', y: 440 }
+        { text: touchUi ? 'TAP TO RETRY' : 'PRESS SPACE TO RETRY', font: 'bold 18px Consolas, monospace', color: '#fff', y: 440 }
       ]);
     }
 
     drawMuteIndicator(ctx);
+    WB.Touch.draw(ctx);
   }
 
-  return { update: update, draw: draw, loadHiscore: loadHiscore };
+  return {
+    update: update, draw: draw, loadHiscore: loadHiscore,
+    getState: function () { return state; }
+  };
 })();

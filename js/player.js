@@ -11,6 +11,7 @@ WB.Player = (function () {
   var RADIUS = 13;
   var INVULN = 1.6; // seconds of invulnerability after being hit
   var x, y, invuln, tilt;
+  var touchTilt = 0, touchTiltTimer = 0; // banking driven by drag input
 
   // Vertical range: mid-screen down to near the bottom, so the ship and
   // its reticle both stay on screen.
@@ -22,6 +23,24 @@ WB.Player = (function () {
     y = H - 90;
     invuln = 0;
     tilt = 0;
+    touchTilt = 0;
+    touchTiltTimer = 0;
+  }
+
+  function clampPos() {
+    if (x < 24) x = 24;
+    if (x > W - 24) x = W - 24;
+    if (y < MIN_Y) y = MIN_Y;
+    if (y > MAX_Y) y = MAX_Y;
+  }
+
+  // Relative move from the touch UI (drag steering). dx/dy in canvas px.
+  function moveBy(dx, dy) {
+    x += dx;
+    y += dy;
+    clampPos();
+    touchTilt = Math.max(-0.5, Math.min(0.5, dx * 0.09));
+    touchTiltTimer = 0.15;
   }
 
   function hit() {
@@ -45,17 +64,21 @@ WB.Player = (function () {
     if (WB.Input.isDown('up')) dy -= 1;
     if (WB.Input.isDown('down')) dy += 1;
 
-    // bank into horizontal motion, level off when not strafing
-    var targetTilt = dx * 0.5;
+    // bank into horizontal motion, level off when not strafing;
+    // recent drag input takes over the bank target
+    var targetTilt;
+    if (touchTiltTimer > 0) {
+      touchTiltTimer -= dt;
+      targetTilt = touchTilt;
+    } else {
+      targetTilt = dx * 0.5;
+    }
     tilt += (targetTilt - tilt) * Math.min(1, dt * 8);
 
     if (dx !== 0 && dy !== 0) { dx *= 0.7071; dy *= 0.7071; }
     x += dx * SPEED * dt;
     y += dy * SPEED * dt;
-    if (x < 24) x = 24;
-    if (x > W - 24) x = W - 24;
-    if (y < MIN_Y) y = MIN_Y;
-    if (y > MAX_Y) y = MAX_Y;
+    clampPos();
   }
 
   function reticlePos() {
@@ -190,6 +213,7 @@ WB.Player = (function () {
     update: update,
     draw: draw,
     hit: hit,
+    moveBy: moveBy,
     startWarp: startWarp,
     isInvulnerable: isInvulnerable,
     reticlePos: reticlePos,

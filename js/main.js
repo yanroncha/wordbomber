@@ -4,6 +4,7 @@
   var ctx = canvas.getContext('2d');
 
   WB.Input.init();
+  WB.Touch.init();
   WB.Game.loadHiscore();
   WB.Background.reset();
   WB.WordGame.newWord(1); // so the HUD has a word even before the first game

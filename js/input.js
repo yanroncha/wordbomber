@@ -35,6 +35,8 @@ WB.Input = (function () {
     },
     isDown: function (name) { return !!down[name]; },
     wasPressed: function (name) { return !!pressed[name]; },
+    // Synthetic one-frame press, used by the touch UI to emit virtual keys.
+    press: function (name) { pressed[name] = true; },
     // Call once at the end of each frame to consume edge events.
     endFrame: function () { pressed = {}; }
   };

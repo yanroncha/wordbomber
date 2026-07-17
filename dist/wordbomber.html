@@ -10,6 +10,9 @@ html, body {
   padding: 0;
   background: #0a0a12;
   height: 100%;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 #wrap {
   display: flex;
@@ -23,6 +26,7 @@ html, body {
   image-rendering: pixelated;
   max-width: 100vw;
   max-height: 100vh;
+  touch-action: none; /* no scroll/pinch while playing */
 }
 </style>
 </head>
@@ -181,6 +185,8 @@ WB.Input = (function () {
     },
     isDown: function (name) { return !!down[name]; },
     wasPressed: function (name) { return !!pressed[name]; },
+    // Synthetic one-frame press, used by the touch UI to emit virtual keys.
+    press: function (name) { pressed[name] = true; },
     // Call once at the end of each frame to consume edge events.
     endFrame: function () { pressed = {}; }
   };
@@ -799,6 +805,7 @@ WB.Player = (function () {
   var RADIUS = 13;
   var INVULN = 1.6; // seconds of invulnerability after being hit
   var x, y, invuln, tilt;
+  var touchTilt = 0, touchTiltTimer = 0; // banking driven by drag input
 
   // Vertical range: mid-screen down to near the bottom, so the ship and
   // its reticle both stay on screen.
@@ -810,6 +817,24 @@ WB.Player = (function () {
     y = H - 90;
     invuln = 0;
     tilt = 0;
+    touchTilt = 0;
+    touchTiltTimer = 0;
+  }
+
+  function clampPos() {
+    if (x < 24) x = 24;
+    if (x > W - 24) x = W - 24;
+    if (y < MIN_Y) y = MIN_Y;
+    if (y > MAX_Y) y = MAX_Y;
+  }
+
+  // Relative move from the touch UI (drag steering). dx/dy in canvas px.
+  function moveBy(dx, dy) {
+    x += dx;
+    y += dy;
+    clampPos();
+    touchTilt = Math.max(-0.5, Math.min(0.5, dx * 0.09));
+    touchTiltTimer = 0.15;
   }
 
   function hit() {
@@ -833,17 +858,21 @@ WB.Player = (function () {
     if (WB.Input.isDown('up')) dy -= 1;
     if (WB.Input.isDown('down')) dy += 1;
 
-    // bank into horizontal motion, level off when not strafing
-    var targetTilt = dx * 0.5;
+    // bank into horizontal motion, level off when not strafing;
+    // recent drag input takes over the bank target
+    var targetTilt;
+    if (touchTiltTimer > 0) {
+      touchTiltTimer -= dt;
+      targetTilt = touchTilt;
+    } else {
+      targetTilt = dx * 0.5;
+    }
     tilt += (targetTilt - tilt) * Math.min(1, dt * 8);
 
     if (dx !== 0 && dy !== 0) { dx *= 0.7071; dy *= 0.7071; }
     x += dx * SPEED * dt;
     y += dy * SPEED * dt;
-    if (x < 24) x = 24;
-    if (x > W - 24) x = W - 24;
-    if (y < MIN_Y) y = MIN_Y;
-    if (y > MAX_Y) y = MAX_Y;
+    clampPos();
   }
 
   function reticlePos() {
@@ -978,6 +1007,7 @@ WB.Player = (function () {
     update: update,
     draw: draw,
     hit: hit,
+    moveBy: moveBy,
     startWarp: startWarp,
     isInvulnerable: isInvulnerable,
     reticlePos: reticlePos,
@@ -1348,6 +1378,206 @@ WB.Audio = (function () {
 })();
 </script>
 <script>
+// Touch UI: drag-relative ship steering plus on-screen bomb / pause / mute
+// controls. Appears on the first touch (or on coarse-pointer devices from the
+// start) and hides again as soon as a keyboard key is pressed, so PC and
+// smartphone switch dynamically with no explicit setting.
+window.WB = window.WB || {};
+
+WB.Touch = (function () {
+  var W = 480, H = 640;
+  var active = false;
+  var canvas = null;
+  var MOVE_GAIN = 1.45; // finger delta -> ship delta
+
+  // on-canvas controls (canvas coordinates)
+  var BOMB = { x: 422, y: 578, r: 44 };
+  var PAUSE = { x: W - 26, y: 104, r: 20 };
+  var MUTE = { x: W - 26, y: 150, r: 20 };
+  // pause-screen tap buttons
+  var RESUME_RECT = { x: W / 2 - 100, y: 385, w: 200, h: 50 };
+  var RESTART_RECT = { x: W / 2 - 100, y: 455, w: 200, h: 50 };
+
+  var touches = {}; // id -> {kind: move|bomb|tapbomb|ui, x, y}
+  var bombHeld = false;
+  var bombHold = 0;
+
+  function toCanvas(t) {
+    var r = canvas.getBoundingClientRect();
+    var sw = r.width > 0 ? W / r.width : 1;   // guard: hidden/zero-size layout
+    var sh = r.height > 0 ? H / r.height : 1;
+    return {
+      x: (t.clientX - r.left) * sw,
+      y: (t.clientY - r.top) * sh
+    };
+  }
+
+  function inCircle(p, c) {
+    var dx = p.x - c.x, dy = p.y - c.y;
+    return dx * dx + dy * dy <= c.r * c.r;
+  }
+
+  function inRect(p, rc) {
+    return p.x >= rc.x && p.x <= rc.x + rc.w && p.y >= rc.y && p.y <= rc.y + rc.h;
+  }
+
+  function gameState() {
+    return WB.Game.getState ? WB.Game.getState() : 'title';
+  }
+
+  function hasMoveTouch() {
+    for (var id in touches) if (touches[id].kind === 'move') return true;
+    return false;
+  }
+
+  function onStart(e) {
+    e.preventDefault();
+    active = true;
+    WB.Audio.start(); // a touch is also a valid autoplay-unlock gesture
+    for (var i = 0; i < e.changedTouches.length; i++) {
+      var t = e.changedTouches[i];
+      var p = toCanvas(t);
+      var st = gameState();
+      var kind = 'move';
+      if (st === 'paused') {
+        if (inRect(p, RESTART_RECT)) WB.Input.press('restart');
+        else WB.Input.press('pause'); // tap anywhere else = resume
+        kind = 'ui';
+      } else if (inCircle(p, PAUSE)) {
+        WB.Input.press('pause');
+        kind = 'ui';
+      } else if (inCircle(p, MUTE)) {
+        WB.Input.press('mute');
+        kind = 'ui';
+      } else if (inCircle(p, BOMB)) {
+        WB.Input.press('bomb');
+        bombHeld = true;
+        bombHold = 0;
+        kind = 'bomb';
+      } else if (hasMoveTouch()) {
+        WB.Input.press('bomb'); // second finger anywhere = bomb
+        kind = 'tapbomb';
+      } else {
+        WB.Input.press('start'); // starts / retries on title & gameover
+      }
+      touches[t.identifier] = { kind: kind, x: p.x, y: p.y };
+    }
+  }
+
+  function onMove(e) {
+    e.preventDefault();
+    for (var i = 0; i < e.changedTouches.length; i++) {
+      var t = e.changedTouches[i];
+      var tr = touches[t.identifier];
+      if (!tr) continue;
+      var p = toCanvas(t);
+      if (tr.kind === 'move' && gameState() === 'playing') {
+        WB.Player.moveBy((p.x - tr.x) * MOVE_GAIN, (p.y - tr.y) * MOVE_GAIN);
+      }
+      tr.x = p.x;
+      tr.y = p.y;
+    }
+  }
+
+  function onEnd(e) {
+    e.preventDefault();
+    for (var i = 0; i < e.changedTouches.length; i++) {
+      var t = e.changedTouches[i];
+      var tr = touches[t.identifier];
+      if (tr && tr.kind === 'bomb') bombHeld = false;
+      delete touches[t.identifier];
+    }
+  }
+
+  function init() {
+    canvas = document.getElementById('game');
+    // coarse pointer (phone/tablet) -> show the touch UI from the start
+    if (window.matchMedia && matchMedia('(pointer: coarse)').matches) active = true;
+    canvas.addEventListener('touchstart', onStart, { passive: false });
+    canvas.addEventListener('touchmove', onMove, { passive: false });
+    canvas.addEventListener('touchend', onEnd, { passive: false });
+    canvas.addEventListener('touchcancel', onEnd, { passive: false });
+    // keyboard use hides the touch UI again (dynamic PC/mobile switching)
+    window.addEventListener('keydown', function () { active = false; });
+  }
+
+  function update(dt) {
+    if (bombHeld) {
+      bombHold += dt;
+      if (bombHold >= 0.3) { // hold the button for autofire
+        bombHold = 0;
+        WB.Input.press('bomb');
+      }
+    }
+  }
+
+  // ---- rendering ------------------------------------------------------
+
+  function drawRoundButton(ctx, rc, label) {
+    ctx.fillStyle = 'rgba(255,255,255,0.14)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 2;
+    ctx.fillRect(rc.x, rc.y, rc.w, rc.h);
+    ctx.strokeRect(rc.x, rc.y, rc.w, rc.h);
+    ctx.lineWidth = 1;
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, rc.x + rc.w / 2, rc.y + rc.h / 2 + 1);
+  }
+
+  function draw(ctx) {
+    if (!active) return;
+    var st = gameState();
+
+    if (st === 'paused') {
+      drawRoundButton(ctx, RESUME_RECT, 'タップで再開');
+      drawRoundButton(ctx, RESTART_RECT, 'リスタート');
+      return;
+    }
+
+    // bomb button
+    ctx.fillStyle = 'rgba(255,90,90,0.25)';
+    ctx.strokeStyle = 'rgba(255,120,120,0.85)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(BOMB.x, BOMB.y, BOMB.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.font = '34px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('💣', BOMB.x, BOMB.y + 2);
+
+    // pause icon (two bars)
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.arc(PAUSE.x, PAUSE.y, PAUSE.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillRect(PAUSE.x - 7, PAUSE.y - 8, 5, 16);
+    ctx.fillRect(PAUSE.x + 2, PAUSE.y - 8, 5, 16);
+
+    // mute icon
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.arc(MUTE.x, MUTE.y, MUTE.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.font = '18px sans-serif';
+    ctx.fillText(WB.Audio.isEnabled() ? '🔊' : '🔇', MUTE.x, MUTE.y + 1);
+  }
+
+  return {
+    init: init,
+    update: update,
+    draw: draw,
+    isActive: function () { return active; }
+  };
+})();
+</script>
+<script>
 // HUD: score, lives, level, combo, the target word (with mushikui blanks),
 // floating notices, and the "word complete" translation banner.
 window.WB = window.WB || {};
@@ -1670,6 +1900,7 @@ WB.Game = (function () {
 
   function update(dt) {
     stateTimer += dt;
+    WB.Touch.update(dt);
     if (WB.Input.wasPressed('mute')) {
       var muted = WB.Audio.toggleMute();
       WB.Hud.flash(muted ? 'MUTE' : 'SOUND ON', '#9fe8ff');
@@ -1729,18 +1960,24 @@ WB.Game = (function () {
   }
 
   function draw(ctx, time) {
+    var touchUi = WB.Touch.isActive();
+
     // Pause screen: hide the field entirely to prevent studying the letters.
     if (state === 'paused') {
       ctx.fillStyle = '#0a0a12';
       ctx.fillRect(0, 0, W, H);
-      drawCenterText(ctx, [
+      var pauseLines = [
         { text: 'PAUSED', font: 'bold 46px Consolas, monospace', color: '#9fe8ff', y: 240 },
         { text: 'カンニング防止のため画面を隠しています', font: '15px sans-serif', color: '#c0c8d0', y: 300 },
-        { text: 'SCORE ' + score + '   LV ' + level, font: '18px Consolas, monospace', color: '#ffd166', y: 344 },
-        { text: 'P / ESC : 再開', font: 'bold 18px sans-serif', color: '#fff', y: 410 },
-        { text: 'R : リスタート', font: 'bold 18px sans-serif', color: '#fff', y: 442 }
-      ]);
+        { text: 'SCORE ' + score + '   LV ' + level, font: '18px Consolas, monospace', color: '#ffd166', y: 344 }
+      ];
+      if (!touchUi) {
+        pauseLines.push({ text: 'P / ESC : 再開', font: 'bold 18px sans-serif', color: '#fff', y: 410 });
+        pauseLines.push({ text: 'R : リスタート', font: 'bold 18px sans-serif', color: '#fff', y: 442 });
+      }
+      drawCenterText(ctx, pauseLines);
       drawMuteIndicator(ctx);
+      WB.Touch.draw(ctx); // resume / restart tap buttons
       return;
     }
 
@@ -1756,12 +1993,13 @@ WB.Game = (function () {
         { text: '文字砲台を爆撃せよ!', font: '16px sans-serif', color: '#e8ecf0', y: 282 },
         { text: '順番を間違えるとミス。虫食い(?)は推理しよう', font: '14px sans-serif', color: '#c0c8d0', y: 314 },
         { text: '砲台の反撃に当たると機体を1機失う(初期8機)', font: '14px sans-serif', color: '#ffb3b3', y: 340 },
-        { text: '移動: ←→↑↓ / WASD    爆撃: SPACE / Z', font: '15px sans-serif', color: '#9fe8ff', y: 398 },
-        { text: 'ポーズ: P / ESC    ミュート: M', font: '15px sans-serif', color: '#9fe8ff', y: 424 },
-        { text: (Math.floor(time * 2) % 2 === 0) ? 'PRESS SPACE' : '', font: 'bold 24px Consolas, monospace', color: '#fff', y: 486 },
+        { text: touchUi ? 'ドラッグ: 移動    💣ボタン / 2本目の指: 爆撃' : '移動: ←→↑↓ / WASD    爆撃: SPACE / Z', font: '15px sans-serif', color: '#9fe8ff', y: 398 },
+        { text: touchUi ? 'ポーズ: ⏸    ミュート: スピーカーアイコン' : 'ポーズ: P / ESC    ミュート: M', font: '15px sans-serif', color: '#9fe8ff', y: 424 },
+        { text: (Math.floor(time * 2) % 2 === 0) ? (touchUi ? 'TAP TO START' : 'PRESS SPACE') : '', font: 'bold 24px Consolas, monospace', color: '#fff', y: 486 },
         { text: 'HI-SCORE ' + hiscore, font: '16px Consolas, monospace', color: '#ffd166', y: 548 }
       ]);
       drawMuteIndicator(ctx);
+      WB.Touch.draw(ctx);
       return;
     }
 
@@ -1798,14 +2036,18 @@ WB.Game = (function () {
         { text: 'GAME OVER', font: 'bold 44px Consolas, monospace', color: '#ff5a5a', y: 240 },
         { text: 'SCORE ' + score, font: 'bold 24px Consolas, monospace', color: '#9fe8ff', y: 320 },
         { text: 'HI-SCORE ' + hiscore, font: '18px Consolas, monospace', color: '#ffd166', y: 358 },
-        { text: 'PRESS SPACE TO RETRY', font: 'bold 18px Consolas, monospace', color: '#fff', y: 440 }
+        { text: touchUi ? 'TAP TO RETRY' : 'PRESS SPACE TO RETRY', font: 'bold 18px Consolas, monospace', color: '#fff', y: 440 }
       ]);
     }
 
     drawMuteIndicator(ctx);
+    WB.Touch.draw(ctx);
   }
 
-  return { update: update, draw: draw, loadHiscore: loadHiscore };
+  return {
+    update: update, draw: draw, loadHiscore: loadHiscore,
+    getState: function () { return state; }
+  };
 })();
 </script>
 <script>
@@ -1815,6 +2057,7 @@ WB.Game = (function () {
   var ctx = canvas.getContext('2d');
 
   WB.Input.init();
+  WB.Touch.init();
   WB.Game.loadHiscore();
   WB.Background.reset();
   WB.WordGame.newWord(1); // so the HUD has a word even before the first game
