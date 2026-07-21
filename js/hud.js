@@ -157,6 +157,17 @@ WB.Hud = (function () {
       ctx.fillText('x' + g.lives, W - 26, ly + 1);
     }
 
+    // active timed help effect: label + remaining seconds
+    if (g.effectType && g.effectRemain > 0) {
+      var label = g.effectType === 'invincible' ? '無敵' : '砲弾減速';
+      var col = g.effectType === 'invincible' ? '#7cf27c' : '#9fe8ff';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.font = 'bold 14px Consolas, monospace';
+      ctx.fillStyle = col;
+      ctx.fillText(label + ' ' + Math.ceil(g.effectRemain) + 's', 10, 92);
+    }
+
     drawWord(ctx);
     drawBanner(ctx);
 

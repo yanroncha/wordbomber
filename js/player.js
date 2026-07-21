@@ -10,7 +10,7 @@ WB.Player = (function () {
   var RETICLE_DIST = 130;
   var RADIUS = 13;
   var INVULN = 1.6; // seconds of invulnerability after being hit
-  var x, y, invuln, tilt;
+  var x, y, invuln, powerInvuln, tilt;
   var touchTilt = 0, touchTiltTimer = 0; // banking driven by drag input
 
   // Vertical range: mid-screen down to near the bottom, so the ship and
@@ -22,6 +22,7 @@ WB.Player = (function () {
     x = W / 2;
     y = H - 90;
     invuln = 0;
+    powerInvuln = 0;
     tilt = 0;
     touchTilt = 0;
     touchTiltTimer = 0;
@@ -52,12 +53,18 @@ WB.Player = (function () {
     invuln = Math.max(invuln, duration);
   }
 
+  // Long-duration invincibility from the help item (seconds).
+  function grantInvincible(duration) {
+    powerInvuln = duration;
+  }
+
   function isInvulnerable() {
-    return invuln > 0;
+    return invuln > 0 || powerInvuln > 0;
   }
 
   function update(dt) {
     if (invuln > 0) invuln -= dt;
+    if (powerInvuln > 0) powerInvuln -= dt;
     var dx = 0, dy = 0;
     if (WB.Input.isDown('left')) dx -= 1;
     if (WB.Input.isDown('right')) dx += 1;
@@ -197,7 +204,7 @@ WB.Player = (function () {
     ctx.lineWidth = 1;
 
     // blink while invulnerable (skip drawing on alternating frames)
-    if (invuln > 0 && Math.floor(time * 20) % 2 === 0) return;
+    if (isInvulnerable() && Math.floor(time * 20) % 2 === 0) return;
 
     ctx.save();
     ctx.translate(x, y);
@@ -215,6 +222,7 @@ WB.Player = (function () {
     hit: hit,
     moveBy: moveBy,
     startWarp: startWarp,
+    grantInvincible: grantInvincible,
     isInvulnerable: isInvulnerable,
     reticlePos: reticlePos,
     getRadius: function () { return RADIUS; },

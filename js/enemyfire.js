@@ -7,9 +7,15 @@ WB.EnemyFire = (function () {
   var R = 5;
 
   var MAX = 5; // global cap so many turrets can't create a bullet storm
+  var speedFactor = 1; // 0.5 while the "slow" help item is active
 
   function reset() {
     bullets = [];
+    speedFactor = 1;
+  }
+
+  function setSpeedFactor(f) {
+    speedFactor = f;
   }
 
   function atCapacity() {
@@ -37,8 +43,8 @@ WB.EnemyFire = (function () {
   function update(dt, playerPos, playerRadius, invulnerable, onHit) {
     for (var i = 0; i < bullets.length; i++) {
       var b = bullets[i];
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
+      b.x += b.vx * speedFactor * dt;
+      b.y += b.vy * speedFactor * dt;
       if (!invulnerable) {
         var dx = b.x - playerPos.x, dy = b.y - playerPos.y;
         var rr = R + playerRadius;
@@ -67,5 +73,5 @@ WB.EnemyFire = (function () {
     }
   }
 
-  return { reset: reset, spawn: spawn, update: update, draw: draw, atCapacity: atCapacity, clear: clear };
+  return { reset: reset, spawn: spawn, update: update, draw: draw, atCapacity: atCapacity, clear: clear, setSpeedFactor: setSpeedFactor };
 })();

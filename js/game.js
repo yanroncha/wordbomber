@@ -8,6 +8,7 @@ WB.Game = (function () {
   var EXTRA_LIFE_EVERY = 1000; // grant one ship per this many points
   var WARP_TIME = 2.0;   // seconds of fast-forward scroll on level up
   var WARP_SPEED = 5;    // scroll multiplier while warping
+  var EFFECT_TIME = 30;  // duration of a timed help effect (invincible / slow)
   var HISCORE_KEY = 'wordbomber.hiscore';
 
   var state = 'title'; // title | playing | paused | gameover
@@ -17,6 +18,8 @@ WB.Game = (function () {
   var stateTimer = 0;
   var warpTimer = 0;
   var nextExtraLife = EXTRA_LIFE_EVERY;
+  var effectType = null;   // 'invincible' | 'slow' | null (exclusive slot)
+  var effectTimer = 0;
 
   // Single entry point for awarding points; grants extra ships on
   // each EXTRA_LIFE_EVERY threshold crossed.
@@ -64,12 +67,14 @@ WB.Game = (function () {
     wordsCompleted = 0; combo = 0;
     warpTimer = 0;
     nextExtraLife = EXTRA_LIFE_EVERY;
+    effectType = null; effectTimer = 0;
     WB.Background.reset();
     WB.Player.reset();
     WB.Bombs.reset();
     WB.EnemyFire.reset();
     WB.WordGame.newWord(level);
     WB.Spawner.reset();
+    WB.Items.reset();
     WB.Hud.reset();
   }
 
@@ -144,6 +149,47 @@ WB.Game = (function () {
     if (lives <= 0) endGame();
   }
 
+  // Start (or replace) the single timed-effect slot. Invincible and slow are
+  // mutually exclusive; taking one cancels the other.
+  function setTimedEffect(type) {
+    effectType = type;
+    effectTimer = EFFECT_TIME;
+    if (type === 'invincible') {
+      WB.EnemyFire.setSpeedFactor(1);       // cancel any active slow
+      WB.Player.grantInvincible(EFFECT_TIME);
+    } else if (type === 'slow') {
+      WB.Player.grantInvincible(0);          // cancel any active invincible
+      WB.EnemyFire.setSpeedFactor(0.5);
+    }
+  }
+
+  function clearTimedEffect() {
+    effectType = null;
+    effectTimer = 0;
+    WB.EnemyFire.setSpeedFactor(1);
+    WB.Player.grantInvincible(0);
+  }
+
+  function onPickup(type) {
+    WB.Audio.sfxFanfare();
+    if (type === 'invincible') {
+      setTimedEffect('invincible');
+      WB.Hud.flash('無敵 30s!', '#7cf27c');
+    } else if (type === 'slow') {
+      setTimedEffect('slow');
+      WB.Hud.flash('砲弾減速 30s!', '#9fe8ff');
+    } else if (type === 'wipe') {
+      WB.EnemyFire.clear();
+      WB.Hud.flash('砲弾殲滅!', '#ffd166');
+    } else if (type === 'letter') {
+      var need = WB.WordGame.neededLetters();
+      if (need.length) {
+        WB.Hud.flash('1文字入力!', '#ffd166');
+        onLetterBombed(need[0]);
+      }
+    }
+  }
+
   function fireTurrets(dt) {
     var turrets = WB.Spawner.getTurrets();
     var pp = WB.Player.getPos();
@@ -188,6 +234,10 @@ WB.Game = (function () {
     // playing
     if (WB.Input.wasPressed('pause')) { state = 'paused'; stateTimer = 0; return; }
     if (warpTimer > 0) warpTimer = Math.max(0, warpTimer - dt);
+    if (effectTimer > 0) {
+      effectTimer -= dt;
+      if (effectTimer <= 0) clearTimedEffect();
+    }
     WB.Background.update(dt, scrollSpeed());
     WB.Player.update(dt);
     if (WB.Input.wasPressed('bomb')) WB.Bombs.tryDrop();
@@ -196,6 +246,7 @@ WB.Game = (function () {
     WB.Bombs.update(dt, onImpact);
     WB.EnemyFire.update(dt, WB.Player.getPos(), WB.Player.getRadius(),
       WB.Player.isInvulnerable(), onPlayerHit);
+    WB.Items.update(dt, scrollSpeed(), WB.Player.getPos(), WB.Player.getRadius(), onPickup);
     WB.Hud.update(dt);
   }
 
@@ -283,10 +334,12 @@ WB.Game = (function () {
       ctx.lineWidth = 1;
     }
 
+    WB.Items.draw(ctx, time);
     WB.Player.draw(ctx, time);
     WB.Hud.draw(ctx, {
       score: score, hiscore: hiscore, lives: lives, level: level,
-      combo: combo, comboMult: comboMult
+      combo: combo, comboMult: comboMult,
+      effectType: effectType, effectRemain: effectTimer
     });
 
     if (state === 'gameover') {

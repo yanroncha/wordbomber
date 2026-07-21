@@ -804,7 +804,7 @@ WB.Player = (function () {
   var RETICLE_DIST = 130;
   var RADIUS = 13;
   var INVULN = 1.6; // seconds of invulnerability after being hit
-  var x, y, invuln, tilt;
+  var x, y, invuln, powerInvuln, tilt;
   var touchTilt = 0, touchTiltTimer = 0; // banking driven by drag input
 
   // Vertical range: mid-screen down to near the bottom, so the ship and
@@ -816,6 +816,7 @@ WB.Player = (function () {
     x = W / 2;
     y = H - 90;
     invuln = 0;
+    powerInvuln = 0;
     tilt = 0;
     touchTilt = 0;
     touchTiltTimer = 0;
@@ -846,12 +847,18 @@ WB.Player = (function () {
     invuln = Math.max(invuln, duration);
   }
 
+  // Long-duration invincibility from the help item (seconds).
+  function grantInvincible(duration) {
+    powerInvuln = duration;
+  }
+
   function isInvulnerable() {
-    return invuln > 0;
+    return invuln > 0 || powerInvuln > 0;
   }
 
   function update(dt) {
     if (invuln > 0) invuln -= dt;
+    if (powerInvuln > 0) powerInvuln -= dt;
     var dx = 0, dy = 0;
     if (WB.Input.isDown('left')) dx -= 1;
     if (WB.Input.isDown('right')) dx += 1;
@@ -991,7 +998,7 @@ WB.Player = (function () {
     ctx.lineWidth = 1;
 
     // blink while invulnerable (skip drawing on alternating frames)
-    if (invuln > 0 && Math.floor(time * 20) % 2 === 0) return;
+    if (isInvulnerable() && Math.floor(time * 20) % 2 === 0) return;
 
     ctx.save();
     ctx.translate(x, y);
@@ -1009,6 +1016,7 @@ WB.Player = (function () {
     hit: hit,
     moveBy: moveBy,
     startWarp: startWarp,
+    grantInvincible: grantInvincible,
     isInvulnerable: isInvulnerable,
     reticlePos: reticlePos,
     getRadius: function () { return RADIUS; },
@@ -1132,9 +1140,15 @@ WB.EnemyFire = (function () {
   var R = 5;
 
   var MAX = 5; // global cap so many turrets can't create a bullet storm
+  var speedFactor = 1; // 0.5 while the "slow" help item is active
 
   function reset() {
     bullets = [];
+    speedFactor = 1;
+  }
+
+  function setSpeedFactor(f) {
+    speedFactor = f;
   }
 
   function atCapacity() {
@@ -1162,8 +1176,8 @@ WB.EnemyFire = (function () {
   function update(dt, playerPos, playerRadius, invulnerable, onHit) {
     for (var i = 0; i < bullets.length; i++) {
       var b = bullets[i];
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
+      b.x += b.vx * speedFactor * dt;
+      b.y += b.vy * speedFactor * dt;
       if (!invulnerable) {
         var dx = b.x - playerPos.x, dy = b.y - playerPos.y;
         var rr = R + playerRadius;
@@ -1192,7 +1206,175 @@ WB.EnemyFire = (function () {
     }
   }
 
-  return { reset: reset, spawn: spawn, update: update, draw: draw, atCapacity: atCapacity, clear: clear };
+  return { reset: reset, spawn: spawn, update: update, draw: draw, atCapacity: atCapacity, clear: clear, setSpeedFactor: setSpeedFactor };
+})();
+</script>
+<script>
+// Help items: metal plates with an icon that fall a bit faster than the
+// terrain scroll. Touching one with the ship triggers its effect (handled in
+// game.js). Up to MAX on screen at once, spawned on a staggered timer.
+window.WB = window.WB || {};
+
+WB.Items = (function () {
+  var W = 480, H = 640;
+  var MAX = 3;
+  var SIZE = 13;         // half-size of the plate (ship is a touch larger)
+  var FALL_BONUS = 55;   // px/s added on top of the scroll speed
+
+  // effect ids and their icon glyph drawer
+  var TYPES = ['invincible', 'slow', 'wipe', 'letter'];
+
+  var items = [];        // {x, y, type, wobble}
+  var timer = 0;
+
+  function reset() {
+    items = [];
+    timer = 3 + Math.random() * 3; // first item after a few seconds
+  }
+
+  function spawnInterval() {
+    return 8 + Math.random() * 7; // staggered 8-15s
+  }
+
+  function spawn() {
+    items.push({
+      x: 40 + Math.random() * (W - 80),
+      y: -SIZE - 6,
+      type: TYPES[Math.floor(Math.random() * TYPES.length)],
+      wobble: Math.random() * Math.PI * 2
+    });
+  }
+
+  // onPickup(type) called when the ship touches an item.
+  function update(dt, scrollSpeed, playerPos, playerRadius, onPickup) {
+    timer -= dt;
+    if (timer <= 0) {
+      if (items.length < MAX) spawn();
+      timer = spawnInterval();
+    }
+
+    var speed = scrollSpeed + FALL_BONUS;
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      it.y += speed * dt;
+      it.wobble += dt * 3;
+      var dx = it.x - playerPos.x, dy = it.y - playerPos.y;
+      var rr = SIZE + playerRadius;
+      if (dx * dx + dy * dy <= rr * rr) {
+        it.dead = true;
+        onPickup(it.type);
+      }
+    }
+    items = items.filter(function (it) { return !it.dead && it.y < H + SIZE + 10; });
+  }
+
+  // ---- icon drawers (centered at 0,0, roughly SIZE across) ------------
+
+  function iconInvincible(ctx) {
+    // thick upward arrow
+    ctx.fillStyle = '#7cf27c';
+    ctx.beginPath();
+    ctx.moveTo(0, -8);
+    ctx.lineTo(7, 0);
+    ctx.lineTo(3, 0);
+    ctx.lineTo(3, 7);
+    ctx.lineTo(-3, 7);
+    ctx.lineTo(-3, 0);
+    ctx.lineTo(-7, 0);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function iconSlow(ctx) {
+    // arrow curving down to the lower-right
+    ctx.strokeStyle = '#9fe8ff';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-6, -6);
+    ctx.quadraticCurveTo(-6, 5, 5, 6);
+    ctx.stroke();
+    ctx.fillStyle = '#9fe8ff';
+    ctx.beginPath(); // arrowhead
+    ctx.moveTo(7, 6);
+    ctx.lineTo(0, 4);
+    ctx.lineTo(3, 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.lineWidth = 1;
+  }
+
+  function iconWipe(ctx) {
+    // lightning bolt
+    ctx.fillStyle = '#ffd166';
+    ctx.beginPath();
+    ctx.moveTo(2, -8);
+    ctx.lineTo(-5, 1);
+    ctx.lineTo(-1, 1);
+    ctx.lineTo(-3, 8);
+    ctx.lineTo(5, -2);
+    ctx.lineTo(1, -2);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function iconLetter(ctx, time) {
+    // lit lamp: glowing bulb over a base
+    var glow = 0.6 + Math.sin(time * 6) * 0.4;
+    ctx.fillStyle = 'rgba(255,240,150,' + (0.35 * glow).toFixed(3) + ')';
+    ctx.beginPath();
+    ctx.arc(0, -1, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffe98a';
+    ctx.beginPath();
+    ctx.arc(0, -1, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#8a6a2a';
+    ctx.fillRect(-3, 4, 6, 4);
+  }
+
+  function drawPlate(ctx, it, time) {
+    var s = SIZE;
+    ctx.save();
+    ctx.translate(it.x, it.y + Math.sin(it.wobble) * 1.5);
+
+    // drop shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(-s + 2, -s + 3, s * 2, s * 2);
+
+    // brushed metal plate with bevel
+    var grad = ctx.createLinearGradient(-s, -s, s, s);
+    grad.addColorStop(0, '#cfd6dd');
+    grad.addColorStop(0.5, '#9aa3ad');
+    grad.addColorStop(1, '#6c757e');
+    ctx.fillStyle = grad;
+    ctx.fillRect(-s, -s, s * 2, s * 2);
+    ctx.strokeStyle = '#eef2f6';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(-s + 1, -s + 1, s * 2 - 2, s * 2 - 2);
+    ctx.strokeStyle = '#4a5158';
+    ctx.strokeRect(-s, -s, s * 2, s * 2);
+    ctx.lineWidth = 1;
+    // corner rivets
+    ctx.fillStyle = '#5a636b';
+    var r = s - 3;
+    [[-r, -r], [r, -r], [-r, r], [r, r]].forEach(function (p) {
+      ctx.beginPath(); ctx.arc(p[0], p[1], 1.3, 0, Math.PI * 2); ctx.fill();
+    });
+
+    switch (it.type) {
+      case 'invincible': iconInvincible(ctx); break;
+      case 'slow': iconSlow(ctx); break;
+      case 'wipe': iconWipe(ctx); break;
+      case 'letter': iconLetter(ctx, time); break;
+    }
+    ctx.restore();
+  }
+
+  function draw(ctx, time) {
+    for (var i = 0; i < items.length; i++) drawPlate(ctx, items[i], time);
+  }
+
+  return { reset: reset, update: update, draw: draw, clear: function () { items = []; } };
 })();
 </script>
 <script>
@@ -1737,6 +1919,17 @@ WB.Hud = (function () {
       ctx.fillText('x' + g.lives, W - 26, ly + 1);
     }
 
+    // active timed help effect: label + remaining seconds
+    if (g.effectType && g.effectRemain > 0) {
+      var label = g.effectType === 'invincible' ? '無敵' : '砲弾減速';
+      var col = g.effectType === 'invincible' ? '#7cf27c' : '#9fe8ff';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.font = 'bold 14px Consolas, monospace';
+      ctx.fillStyle = col;
+      ctx.fillText(label + ' ' + Math.ceil(g.effectRemain) + 's', 10, 92);
+    }
+
     drawWord(ctx);
     drawBanner(ctx);
 
@@ -1773,6 +1966,7 @@ WB.Game = (function () {
   var EXTRA_LIFE_EVERY = 1000; // grant one ship per this many points
   var WARP_TIME = 2.0;   // seconds of fast-forward scroll on level up
   var WARP_SPEED = 5;    // scroll multiplier while warping
+  var EFFECT_TIME = 30;  // duration of a timed help effect (invincible / slow)
   var HISCORE_KEY = 'wordbomber.hiscore';
 
   var state = 'title'; // title | playing | paused | gameover
@@ -1782,6 +1976,8 @@ WB.Game = (function () {
   var stateTimer = 0;
   var warpTimer = 0;
   var nextExtraLife = EXTRA_LIFE_EVERY;
+  var effectType = null;   // 'invincible' | 'slow' | null (exclusive slot)
+  var effectTimer = 0;
 
   // Single entry point for awarding points; grants extra ships on
   // each EXTRA_LIFE_EVERY threshold crossed.
@@ -1829,12 +2025,14 @@ WB.Game = (function () {
     wordsCompleted = 0; combo = 0;
     warpTimer = 0;
     nextExtraLife = EXTRA_LIFE_EVERY;
+    effectType = null; effectTimer = 0;
     WB.Background.reset();
     WB.Player.reset();
     WB.Bombs.reset();
     WB.EnemyFire.reset();
     WB.WordGame.newWord(level);
     WB.Spawner.reset();
+    WB.Items.reset();
     WB.Hud.reset();
   }
 
@@ -1909,6 +2107,47 @@ WB.Game = (function () {
     if (lives <= 0) endGame();
   }
 
+  // Start (or replace) the single timed-effect slot. Invincible and slow are
+  // mutually exclusive; taking one cancels the other.
+  function setTimedEffect(type) {
+    effectType = type;
+    effectTimer = EFFECT_TIME;
+    if (type === 'invincible') {
+      WB.EnemyFire.setSpeedFactor(1);       // cancel any active slow
+      WB.Player.grantInvincible(EFFECT_TIME);
+    } else if (type === 'slow') {
+      WB.Player.grantInvincible(0);          // cancel any active invincible
+      WB.EnemyFire.setSpeedFactor(0.5);
+    }
+  }
+
+  function clearTimedEffect() {
+    effectType = null;
+    effectTimer = 0;
+    WB.EnemyFire.setSpeedFactor(1);
+    WB.Player.grantInvincible(0);
+  }
+
+  function onPickup(type) {
+    WB.Audio.sfxFanfare();
+    if (type === 'invincible') {
+      setTimedEffect('invincible');
+      WB.Hud.flash('無敵 30s!', '#7cf27c');
+    } else if (type === 'slow') {
+      setTimedEffect('slow');
+      WB.Hud.flash('砲弾減速 30s!', '#9fe8ff');
+    } else if (type === 'wipe') {
+      WB.EnemyFire.clear();
+      WB.Hud.flash('砲弾殲滅!', '#ffd166');
+    } else if (type === 'letter') {
+      var need = WB.WordGame.neededLetters();
+      if (need.length) {
+        WB.Hud.flash('1文字入力!', '#ffd166');
+        onLetterBombed(need[0]);
+      }
+    }
+  }
+
   function fireTurrets(dt) {
     var turrets = WB.Spawner.getTurrets();
     var pp = WB.Player.getPos();
@@ -1953,6 +2192,10 @@ WB.Game = (function () {
     // playing
     if (WB.Input.wasPressed('pause')) { state = 'paused'; stateTimer = 0; return; }
     if (warpTimer > 0) warpTimer = Math.max(0, warpTimer - dt);
+    if (effectTimer > 0) {
+      effectTimer -= dt;
+      if (effectTimer <= 0) clearTimedEffect();
+    }
     WB.Background.update(dt, scrollSpeed());
     WB.Player.update(dt);
     if (WB.Input.wasPressed('bomb')) WB.Bombs.tryDrop();
@@ -1961,6 +2204,7 @@ WB.Game = (function () {
     WB.Bombs.update(dt, onImpact);
     WB.EnemyFire.update(dt, WB.Player.getPos(), WB.Player.getRadius(),
       WB.Player.isInvulnerable(), onPlayerHit);
+    WB.Items.update(dt, scrollSpeed(), WB.Player.getPos(), WB.Player.getRadius(), onPickup);
     WB.Hud.update(dt);
   }
 
@@ -2048,10 +2292,12 @@ WB.Game = (function () {
       ctx.lineWidth = 1;
     }
 
+    WB.Items.draw(ctx, time);
     WB.Player.draw(ctx, time);
     WB.Hud.draw(ctx, {
       score: score, hiscore: hiscore, lives: lives, level: level,
-      combo: combo, comboMult: comboMult
+      combo: combo, comboMult: comboMult,
+      effectType: effectType, effectRemain: effectTimer
     });
 
     if (state === 'gameover') {
