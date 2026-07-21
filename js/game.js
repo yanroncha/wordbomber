@@ -5,6 +5,7 @@ WB.Game = (function () {
   var W = 480, H = 640;
   var WORDS_PER_LEVEL = 3;
   var START_LIVES = 8;
+  var EXTRA_LIFE_EVERY = 1000; // grant one ship per this many points
   var WARP_TIME = 2.0;   // seconds of fast-forward scroll on level up
   var WARP_SPEED = 5;    // scroll multiplier while warping
   var HISCORE_KEY = 'wordbomber.hiscore';
@@ -15,6 +16,18 @@ WB.Game = (function () {
   var combo = 0; // consecutive words completed without a miss
   var stateTimer = 0;
   var warpTimer = 0;
+  var nextExtraLife = EXTRA_LIFE_EVERY;
+
+  // Single entry point for awarding points; grants extra ships on
+  // each EXTRA_LIFE_EVERY threshold crossed.
+  function addScore(pts) {
+    score += pts;
+    while (score >= nextExtraLife) {
+      lives++;
+      nextExtraLife += EXTRA_LIFE_EVERY;
+      WB.Hud.flash('1UP!', '#7cf27c');
+    }
+  }
 
   function loadHiscore() {
     try { hiscore = parseInt(localStorage.getItem(HISCORE_KEY), 10) || 0; }
@@ -50,6 +63,7 @@ WB.Game = (function () {
     score = 0; lives = START_LIVES; level = 1;
     wordsCompleted = 0; combo = 0;
     warpTimer = 0;
+    nextExtraLife = EXTRA_LIFE_EVERY;
     WB.Background.reset();
     WB.Player.reset();
     WB.Bombs.reset();
@@ -71,12 +85,12 @@ WB.Game = (function () {
     }
 
     var pts = 100 * level * (res.wasMasked ? 2 : 1);
-    score += pts;
+    addScore(pts);
     WB.Hud.flash('+' + pts, res.wasMasked ? '#ffd166' : '#9fe8ff');
 
     if (res.complete) {
       var bonus = Math.floor(500 * res.word.length * level * comboMult());
-      score += bonus;
+      addScore(bonus);
       combo++;
       wordsCompleted++;
       // Completion celebration: translation banner + a few bursts.
@@ -112,7 +126,7 @@ WB.Game = (function () {
         onLetterBombed(t.letter);
         if (state !== 'playing') return;
       } else {
-        score += 50 * level;
+        addScore(50 * level);
         WB.Hud.flash('+' + (50 * level), '#c0c8d0');
       }
     }

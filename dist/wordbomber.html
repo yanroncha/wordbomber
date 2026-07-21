@@ -1692,6 +1692,17 @@ WB.Hud = (function () {
     ctx.restore();
   }
 
+  function drawShipIcon(ctx, x, y) {
+    ctx.fillStyle = '#d8dee6';
+    ctx.beginPath();
+    ctx.moveTo(x, y - 7);
+    ctx.lineTo(x + 6, y + 6);
+    ctx.lineTo(x, y + 2);
+    ctx.lineTo(x - 6, y + 6);
+    ctx.closePath();
+    ctx.fill();
+  }
+
   function draw(ctx, g) {
     // top bar
     ctx.fillStyle = 'rgba(0,0,0,0.8)';
@@ -1712,18 +1723,18 @@ WB.Hud = (function () {
       ctx.fillStyle = '#ff9de2';
       ctx.fillText('COMBO x' + g.comboMult().toFixed(1), 70, 66);
     }
-    // lives as small ships
-    ctx.textAlign = 'right';
-    for (var l = 0; l < g.lives; l++) {
-      var lx = W - 14 - l * 18, ly = 66;
+    // lives: small ships up to 6, then a compact "x N" counter
+    var ly = 66;
+    if (g.lives <= 6) {
+      for (var l = 0; l < g.lives; l++) {
+        drawShipIcon(ctx, W - 14 - l * 18, ly);
+      }
+    } else {
+      drawShipIcon(ctx, W - 14, ly);
       ctx.fillStyle = '#d8dee6';
-      ctx.beginPath();
-      ctx.moveTo(lx, ly - 7);
-      ctx.lineTo(lx + 6, ly + 6);
-      ctx.lineTo(lx, ly + 2);
-      ctx.lineTo(lx - 6, ly + 6);
-      ctx.closePath();
-      ctx.fill();
+      ctx.font = 'bold 15px Consolas, monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('x' + g.lives, W - 26, ly + 1);
     }
 
     drawWord(ctx);
@@ -1759,6 +1770,7 @@ WB.Game = (function () {
   var W = 480, H = 640;
   var WORDS_PER_LEVEL = 3;
   var START_LIVES = 8;
+  var EXTRA_LIFE_EVERY = 1000; // grant one ship per this many points
   var WARP_TIME = 2.0;   // seconds of fast-forward scroll on level up
   var WARP_SPEED = 5;    // scroll multiplier while warping
   var HISCORE_KEY = 'wordbomber.hiscore';
@@ -1769,6 +1781,18 @@ WB.Game = (function () {
   var combo = 0; // consecutive words completed without a miss
   var stateTimer = 0;
   var warpTimer = 0;
+  var nextExtraLife = EXTRA_LIFE_EVERY;
+
+  // Single entry point for awarding points; grants extra ships on
+  // each EXTRA_LIFE_EVERY threshold crossed.
+  function addScore(pts) {
+    score += pts;
+    while (score >= nextExtraLife) {
+      lives++;
+      nextExtraLife += EXTRA_LIFE_EVERY;
+      WB.Hud.flash('1UP!', '#7cf27c');
+    }
+  }
 
   function loadHiscore() {
     try { hiscore = parseInt(localStorage.getItem(HISCORE_KEY), 10) || 0; }
@@ -1804,6 +1828,7 @@ WB.Game = (function () {
     score = 0; lives = START_LIVES; level = 1;
     wordsCompleted = 0; combo = 0;
     warpTimer = 0;
+    nextExtraLife = EXTRA_LIFE_EVERY;
     WB.Background.reset();
     WB.Player.reset();
     WB.Bombs.reset();
@@ -1825,12 +1850,12 @@ WB.Game = (function () {
     }
 
     var pts = 100 * level * (res.wasMasked ? 2 : 1);
-    score += pts;
+    addScore(pts);
     WB.Hud.flash('+' + pts, res.wasMasked ? '#ffd166' : '#9fe8ff');
 
     if (res.complete) {
       var bonus = Math.floor(500 * res.word.length * level * comboMult());
-      score += bonus;
+      addScore(bonus);
       combo++;
       wordsCompleted++;
       // Completion celebration: translation banner + a few bursts.
@@ -1866,7 +1891,7 @@ WB.Game = (function () {
         onLetterBombed(t.letter);
         if (state !== 'playing') return;
       } else {
-        score += 50 * level;
+        addScore(50 * level);
         WB.Hud.flash('+' + (50 * level), '#c0c8d0');
       }
     }

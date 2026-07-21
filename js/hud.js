@@ -112,6 +112,17 @@ WB.Hud = (function () {
     ctx.restore();
   }
 
+  function drawShipIcon(ctx, x, y) {
+    ctx.fillStyle = '#d8dee6';
+    ctx.beginPath();
+    ctx.moveTo(x, y - 7);
+    ctx.lineTo(x + 6, y + 6);
+    ctx.lineTo(x, y + 2);
+    ctx.lineTo(x - 6, y + 6);
+    ctx.closePath();
+    ctx.fill();
+  }
+
   function draw(ctx, g) {
     // top bar
     ctx.fillStyle = 'rgba(0,0,0,0.8)';
@@ -132,18 +143,18 @@ WB.Hud = (function () {
       ctx.fillStyle = '#ff9de2';
       ctx.fillText('COMBO x' + g.comboMult().toFixed(1), 70, 66);
     }
-    // lives as small ships
-    ctx.textAlign = 'right';
-    for (var l = 0; l < g.lives; l++) {
-      var lx = W - 14 - l * 18, ly = 66;
+    // lives: small ships up to 6, then a compact "x N" counter
+    var ly = 66;
+    if (g.lives <= 6) {
+      for (var l = 0; l < g.lives; l++) {
+        drawShipIcon(ctx, W - 14 - l * 18, ly);
+      }
+    } else {
+      drawShipIcon(ctx, W - 14, ly);
       ctx.fillStyle = '#d8dee6';
-      ctx.beginPath();
-      ctx.moveTo(lx, ly - 7);
-      ctx.lineTo(lx + 6, ly + 6);
-      ctx.lineTo(lx, ly + 2);
-      ctx.lineTo(lx - 6, ly + 6);
-      ctx.closePath();
-      ctx.fill();
+      ctx.font = 'bold 15px Consolas, monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('x' + g.lives, W - 26, ly + 1);
     }
 
     drawWord(ctx);
