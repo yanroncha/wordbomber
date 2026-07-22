@@ -20,6 +20,7 @@ WB.Game = (function () {
   var nextExtraLife = EXTRA_LIFE_EVERY;
   var effectType = null;   // 'invincible' | 'slow' | null (exclusive slot)
   var effectTimer = 0;
+  var lastBossLevel = 0;   // highest level that has already triggered a boss
 
   // Single entry point for awarding points; grants extra ships on
   // each EXTRA_LIFE_EVERY threshold crossed.
@@ -68,6 +69,8 @@ WB.Game = (function () {
     warpTimer = 0;
     nextExtraLife = EXTRA_LIFE_EVERY;
     effectType = null; effectTimer = 0;
+    lastBossLevel = 0;
+    WB.Boss.reset();
     WB.Background.reset();
     WB.Player.reset();
     WB.Bombs.reset();
@@ -102,25 +105,79 @@ WB.Game = (function () {
       WB.Hud.wordComplete(res.word, WB.translate(res.word));
       WB.Audio.sfxFanfare(); // short victory fanfare
       WB.EnemyFire.clear(); // clear every shell in flight on completion
-      WB.Background.changeBiome(); // next terrain scrolls in with the next word
       WB.Bombs.explodeAt(W / 2, 250);
       WB.Bombs.explodeAt(W / 2 - 90, 250);
       WB.Bombs.explodeAt(W / 2 + 90, 250);
       WB.Hud.flash('+' + bonus, '#7cf27c');
+
+      var bossWin = false;
+      if (state === 'boss') {
+        bossWin = WB.Boss.notifyWordComplete(); // counts toward the 5-word victory
+      } else {
+        WB.Background.changeBiome(); // next terrain scrolls in with the next word
+      }
+
       var newLevel = 1 + Math.floor(wordsCompleted / WORDS_PER_LEVEL);
       if (newLevel > level) {
         level = newLevel;
-        // warp to the next area: fast-forward scroll, blinking ship, SFX
-        warpTimer = WARP_TIME;
-        WB.Player.startWarp(WARP_TIME);
-        WB.Audio.sfxWarp();
-        WB.Hud.flash('LEVEL ' + level + '!  WARP!', '#ff9de2');
+        if (state === 'boss') {
+          WB.Hud.flash('LEVEL ' + level + '!', '#ff9de2'); // no warp during boss
+        } else if (level % 10 === 0 && level > lastBossLevel) {
+          enterBoss(); // level milestone: fight a boss instead of warping
+        } else {
+          // warp to the next area: fast-forward scroll, blinking ship, SFX
+          warpTimer = WARP_TIME;
+          WB.Player.startWarp(WARP_TIME);
+          WB.Audio.sfxWarp();
+          WB.Hud.flash('LEVEL ' + level + '!  WARP!', '#ff9de2');
+        }
       }
+
+      if (bossWin) defeatBoss();
       WB.WordGame.newWord(level);
     }
   }
 
+  function enterBoss() {
+    lastBossLevel = level;
+    state = 'boss';
+    stateTimer = 0;
+    warpTimer = 0;
+    WB.EnemyFire.clear();
+    WB.Boss.start();
+    WB.Hud.flash('WARNING! BOSS BATTLE', '#ff5a5a');
+    WB.Audio.sfxWarp();
+  }
+
+  function defeatBoss() {
+    addScore(500);
+    WB.Hud.flash('BOSS DOWN!  +500', '#ffd166');
+    WB.Audio.sfxDestroy();
+    // WB.Boss enters its dying animation; the boss-state update returns to play.
+  }
+
+  function turretHit(t, x, y, blastR) {
+    var dx = t.x - x, dy = t.y - y;
+    return dx * dx + dy * dy <= (t.r + blastR) * (t.r + blastR);
+  }
+
   function onImpact(x, y, blastR) {
+    // Boss battle: bombs hit the fortress's surface turrets instead.
+    if (state === 'boss') {
+      var bt = WB.Boss.getTurrets();
+      for (var b = 0; b < bt.length; b++) {
+        var bturret = bt[b];
+        if (!bturret.alive || bturret.blinkT > 0) continue;
+        if (!turretHit(bturret, x, y, blastR)) continue;
+        WB.Audio.sfxDestroy();
+        var hadLetter = bturret.letter;
+        WB.Boss.onTurretBombed(bturret); // blink, respawn later
+        if (hadLetter) onLetterBombed(hadLetter);
+        return;
+      }
+      return;
+    }
+
     var turrets = WB.Spawner.getTurrets();
     for (var i = 0; i < turrets.length; i++) {
       var t = turrets[i];
@@ -231,13 +288,32 @@ WB.Game = (function () {
       return;
     }
 
-    // playing
     if (WB.Input.wasPressed('pause')) { state = 'paused'; stateTimer = 0; return; }
-    if (warpTimer > 0) warpTimer = Math.max(0, warpTimer - dt);
     if (effectTimer > 0) {
       effectTimer -= dt;
       if (effectTimer <= 0) clearTimedEffect();
     }
+
+    // boss battle: terrain scroll stops; the fortress fires and is bombed
+    if (state === 'boss') {
+      WB.Player.update(dt);
+      if (WB.Input.wasPressed('bomb')) WB.Bombs.tryDrop();
+      WB.Boss.update(dt, WB.Player.getPos(), stateTimer);
+      WB.Bombs.update(dt, onImpact);
+      WB.EnemyFire.update(dt, WB.Player.getPos(), WB.Player.getRadius(),
+        WB.Player.isInvulnerable(), onPlayerHit);
+      WB.Items.update(dt, 60, WB.Player.getPos(), WB.Player.getRadius(), onPickup);
+      WB.Hud.update(dt);
+      if (WB.Boss.phase() === 'done') { // victory animation finished
+        state = 'playing';
+        WB.EnemyFire.clear();
+        WB.Spawner.reset();
+      }
+      return;
+    }
+
+    // playing
+    if (warpTimer > 0) warpTimer = Math.max(0, warpTimer - dt);
     WB.Background.update(dt, scrollSpeed());
     WB.Player.update(dt);
     if (WB.Input.wasPressed('bomb')) WB.Bombs.tryDrop();
@@ -314,7 +390,11 @@ WB.Game = (function () {
       return;
     }
 
-    WB.Spawner.draw(ctx);
+    if (state === 'boss') {
+      WB.Boss.draw(ctx, time);
+    } else {
+      WB.Spawner.draw(ctx);
+    }
     WB.EnemyFire.draw(ctx);
     WB.Bombs.draw(ctx);
 
@@ -341,6 +421,15 @@ WB.Game = (function () {
       combo: combo, comboMult: comboMult,
       effectType: effectType, effectRemain: effectTimer
     });
+
+    if (state === 'boss') {
+      var bp = WB.Boss.getProgress();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = 'bold 15px Consolas, monospace';
+      ctx.fillStyle = '#ff9de2';
+      ctx.fillText('BOSS  ' + bp.done + ' / ' + bp.total + ' WORDS', W / 2, 108);
+    }
 
     if (state === 'gameover') {
       ctx.fillStyle = 'rgba(0,0,0,0.65)';
