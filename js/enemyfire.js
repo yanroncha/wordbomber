@@ -28,7 +28,7 @@ WB.EnemyFire = (function () {
   }
 
   function bulletSpeed(level) {
-    return Math.min(150, 80 + level * 5);
+    return Math.min(120, 80 + level * 5);
   }
 
   // Fire from (sx, sy) aimed at the player's current position.

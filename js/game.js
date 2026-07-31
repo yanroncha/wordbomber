@@ -5,7 +5,9 @@ WB.Game = (function () {
   var W = 480, H = 640;
   var WORDS_PER_LEVEL = 3;
   var START_LIVES = 8;
-  var EXTRA_LIFE_EVERY = 1000; // grant one ship per this many points
+  var EXTRA_LIFE_EVERY = 2000; // grant one ship per this many points
+  var BOSS_EVERY_LEVELS = 5;   // boss battle on each multiple of this level
+  var SCORE_LEVEL_CAP = 5;     // level multiplier for scoring stops here
   var WARP_TIME = 2.0;   // seconds of fast-forward scroll on level up
   var WARP_SPEED = 5;    // scroll multiplier while warping
   var EFFECT_TIME = 30;  // duration of a timed help effect (invincible / slow)
@@ -18,17 +20,21 @@ WB.Game = (function () {
   var stateTimer = 0;
   var warpTimer = 0;
   var nextExtraLife = EXTRA_LIFE_EVERY;
+  var livesAwarded = 0; // number of 1UPs so far (widens the next threshold)
   var effectType = null;   // 'invincible' | 'slow' | null (exclusive slot)
   var effectTimer = 0;
   var lastBossLevel = 0;   // highest level that has already triggered a boss
 
-  // Single entry point for awarding points; grants extra ships on
-  // each EXTRA_LIFE_EVERY threshold crossed.
+  // Single entry point for awarding points; grants extra ships on each
+  // threshold crossed. The gap widens progressively (the Nth ship costs
+  // EXTRA_LIFE_EVERY x N) so late-game bonuses, which span many flat
+  // thresholds at once, don't hand out ships by the dozen.
   function addScore(pts) {
     score += pts;
     while (score >= nextExtraLife) {
       lives++;
-      nextExtraLife += EXTRA_LIFE_EVERY;
+      livesAwarded++;
+      nextExtraLife += EXTRA_LIFE_EVERY * (livesAwarded + 1);
       WB.Hud.flash('1UP!', '#7cf27c');
     }
   }
@@ -46,8 +52,15 @@ WB.Game = (function () {
     return Math.min(3, 1 + 0.5 * combo);
   }
 
+  // Level factor used for scoring. Capped so the completion bonus (which is
+  // already length x combo) stops compounding without limit in late levels;
+  // difficulty keeps rising even though the payout plateaus.
+  function scoreLevel() {
+    return Math.min(SCORE_LEVEL_CAP, level);
+  }
+
   function scrollSpeed() {
-    var base = Math.min(150, 55 + level * 8);
+    var base = Math.min(120, 55 + level * 8);
     return warpTimer > 0 ? base * WARP_SPEED : base;
   }
 
@@ -68,6 +81,7 @@ WB.Game = (function () {
     wordsCompleted = 0; combo = 0;
     warpTimer = 0;
     nextExtraLife = EXTRA_LIFE_EVERY;
+    livesAwarded = 0;
     effectType = null; effectTimer = 0;
     lastBossLevel = 0;
     WB.Boss.reset();
@@ -92,12 +106,12 @@ WB.Game = (function () {
       return;
     }
 
-    var pts = 100 * level * (res.wasMasked ? 2 : 1);
+    var pts = 100 * scoreLevel() * (res.wasMasked ? 2 : 1);
     addScore(pts);
     WB.Hud.flash('+' + pts, res.wasMasked ? '#ffd166' : '#9fe8ff');
 
     if (res.complete) {
-      var bonus = Math.floor(500 * res.word.length * level * comboMult());
+      var bonus = Math.floor(500 * res.word.length * scoreLevel() * comboMult());
       addScore(bonus);
       combo++;
       wordsCompleted++;
@@ -122,7 +136,7 @@ WB.Game = (function () {
         level = newLevel;
         if (state === 'boss') {
           WB.Hud.flash('LEVEL ' + level + '!', '#ff9de2'); // no warp during boss
-        } else if (level % 10 === 0 && level > lastBossLevel) {
+        } else if (level % BOSS_EVERY_LEVELS === 0 && level > lastBossLevel) {
           enterBoss(); // level milestone: fight a boss instead of warping
         } else {
           // warp to the next area: fast-forward scroll, blinking ship, SFX
@@ -188,8 +202,8 @@ WB.Game = (function () {
         onLetterBombed(t.letter);
         if (state !== 'playing') return;
       } else {
-        addScore(50 * level);
-        WB.Hud.flash('+' + (50 * level), '#c0c8d0');
+        addScore(50 * scoreLevel());
+        WB.Hud.flash('+' + (50 * scoreLevel()), '#c0c8d0');
       }
     }
   }
